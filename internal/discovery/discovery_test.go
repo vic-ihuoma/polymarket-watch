@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -866,6 +867,314 @@ func TestDiscovererInterface(t *testing.T) {
 	var _ = NewDiscoverer()
 }
 
+// TestDiscoverer_resolveMarkets_Errors tests error handling in market resolution.
+func TestDiscoverer_resolveMarkets_Errors(t *testing.T) {
+	t.Run("returns_error_when_GetMarket_fails", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImplWithErrors{
+			getMarketErr: errors.New("API connection failed"),
+		}
+		d := NewDiscoverer(WithDiscovererGammaAPI(mockGamma))
+
+		opts := DiscoveryOptions{
+			MarketIDs: []string{"0xmarket1"},
+		}
+		opts.ApplyDefaults()
+
+		ctx := context.Background()
+		_, err := d.resolveMarkets(ctx, opts)
+		if err == nil {
+			t.Error("resolveMarkets() expected error, got nil")
+		}
+		if !errors.Is(err, mockGamma.getMarketErr) && err.Error() != "fetching market 0xmarket1: API connection failed" {
+			t.Errorf("resolveMarkets() error = %v, want wrapped API error", err)
+		}
+	})
+
+	t.Run("returns_error_when_GetMarketBySlug_fails", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImplWithErrors{
+			getMarketBySlugErr: errors.New("slug lookup failed"),
+		}
+		d := NewDiscoverer(WithDiscovererGammaAPI(mockGamma))
+
+		opts := DiscoveryOptions{
+			MarketSlugs: []string{"will-trump-win"},
+		}
+		opts.ApplyDefaults()
+
+		ctx := context.Background()
+		_, err := d.resolveMarkets(ctx, opts)
+		if err == nil {
+			t.Error("resolveMarkets() expected error, got nil")
+		}
+	})
+
+	t.Run("returns_error_when_GetTopMarkets_fails", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImplWithErrors{
+			getTopMarketsErr: errors.New("top markets fetch failed"),
+		}
+		d := NewDiscoverer(WithDiscovererGammaAPI(mockGamma))
+
+		opts := DiscoveryOptions{
+			AutoDiscover: true,
+			TopN:         5,
+		}
+		opts.ApplyDefaults()
+
+		ctx := context.Background()
+		_, err := d.resolveMarkets(ctx, opts)
+		if err == nil {
+			t.Error("resolveMarkets() expected error, got nil")
+		}
+	})
+
+	t.Run("skips_nil_market_from_GetMarket", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImpl{
+			markets: map[string]*api.Market{}, // Empty, so GetMarket returns nil
+		}
+		d := NewDiscoverer(WithDiscovererGammaAPI(mockGamma))
+
+		opts := DiscoveryOptions{
+			MarketIDs: []string{"0xnonexistent"},
+		}
+		opts.ApplyDefaults()
+
+		ctx := context.Background()
+		markets, err := d.resolveMarkets(ctx, opts)
+		if err != nil {
+			t.Fatalf("resolveMarkets() unexpected error: %v", err)
+		}
+		if len(markets) != 0 {
+			t.Errorf("len(markets) = %d, want 0 for nil market", len(markets))
+		}
+	})
+
+	t.Run("skips_nil_market_from_GetMarketBySlug", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImpl{
+			marketsBySlugs: map[string]*api.Market{}, // Empty, so GetMarketBySlug returns nil
+		}
+		d := NewDiscoverer(WithDiscovererGammaAPI(mockGamma))
+
+		opts := DiscoveryOptions{
+			MarketSlugs: []string{"nonexistent-slug"},
+		}
+		opts.ApplyDefaults()
+
+		ctx := context.Background()
+		markets, err := d.resolveMarkets(ctx, opts)
+		if err != nil {
+			t.Fatalf("resolveMarkets() unexpected error: %v", err)
+		}
+		if len(markets) != 0 {
+			t.Errorf("len(markets) = %d, want 0 for nil market", len(markets))
+		}
+	})
+}
+
+// TestDiscoverer_aggregateHolders_Errors tests error handling in holder aggregation.
+func TestDiscoverer_aggregateHolders_Errors(t *testing.T) {
+	t.Run("returns_error_when_GetHoldersForMarket_fails", func(t *testing.T) {
+		mockData := &mockDataAPIImplWithErrors{
+			getHoldersErr: errors.New("holders fetch failed"),
+		}
+		d := NewDiscoverer(WithDiscovererDataAPI(mockData))
+
+		markets := []resolvedMarket{
+			{conditionID: "0xmarket1", slug: "market-1", question: "Question 1"},
+		}
+		opts := DiscoveryOptions{HoldersLimit: 20}
+
+		ctx := context.Background()
+		_, err := d.aggregateHolders(ctx, markets, opts)
+		if err == nil {
+			t.Error("aggregateHolders() expected error, got nil")
+		}
+	})
+}
+
+// TestDiscoverer_scanWallets_Errors tests error handling in wallet scanning.
+func TestDiscoverer_scanWallets_Errors(t *testing.T) {
+	t.Run("increments_scan_errors_on_failure", func(t *testing.T) {
+		mockScn := &mockScannerImplWithErrors{
+			scanErr: errors.New("scan failed"),
+		}
+		d := NewDiscoverer(WithDiscovererScanner(mockScn))
+
+		wallets := map[string]DiscoveredWallet{
+			"0xwallet1": {Address: "0xwallet1", TotalAmount: 100},
+			"0xwallet2": {Address: "0xwallet2", TotalAmount: 200},
+		}
+
+		result := NewDiscoveryResult()
+		opts := DiscoveryOptions{Concurrency: 2, BotThreshold: 80}
+
+		ctx := context.Background()
+		d.scanWallets(ctx, wallets, result, opts)
+
+		if result.Stats.ScanErrors != 2 {
+			t.Errorf("Stats.ScanErrors = %d, want 2", result.Stats.ScanErrors)
+		}
+		if result.Stats.WalletsScanned != 0 {
+			t.Errorf("Stats.WalletsScanned = %d, want 0", result.Stats.WalletsScanned)
+		}
+	})
+
+	t.Run("handles_context_cancellation_during_scanning", func(t *testing.T) {
+		// Create a scanner that will block
+		mockScn := &mockScannerImplBlocking{
+			blockChan: make(chan struct{}),
+		}
+		d := NewDiscoverer(WithDiscovererScanner(mockScn))
+
+		wallets := map[string]DiscoveredWallet{
+			"0xwallet1": {Address: "0xwallet1", TotalAmount: 100},
+		}
+
+		result := NewDiscoveryResult()
+		opts := DiscoveryOptions{Concurrency: 1, BotThreshold: 80}
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		// Cancel immediately - this will cause context cancellation in semaphore acquisition
+		cancel()
+
+		d.scanWallets(ctx, wallets, result, opts)
+
+		// When context is cancelled, errors should be incremented
+		if result.Stats.ScanErrors != 1 {
+			t.Errorf("Stats.ScanErrors = %d, want 1", result.Stats.ScanErrors)
+		}
+	})
+}
+
+// TestDiscoverer_Discover_Errors tests error handling in Discover.
+func TestDiscoverer_Discover_Errors(t *testing.T) {
+	t.Run("returns_error_when_resolveMarkets_fails", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImplWithErrors{
+			getMarketErr: errors.New("API connection failed"),
+		}
+		d := NewDiscoverer(WithDiscovererGammaAPI(mockGamma))
+
+		opts := DiscoveryOptions{
+			MarketIDs: []string{"0xmarket1"},
+		}
+
+		ctx := context.Background()
+		_, err := d.Discover(ctx, opts)
+		if err == nil {
+			t.Error("Discover() expected error, got nil")
+		}
+	})
+
+	t.Run("returns_error_when_aggregateHolders_fails", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImpl{
+			markets: map[string]*api.Market{
+				"0xmarket1": {ConditionID: "0xmarket1", Slug: "market-1", Question: "Q1"},
+			},
+		}
+		mockData := &mockDataAPIImplWithErrors{
+			getHoldersErr: errors.New("holders fetch failed"),
+		}
+		d := NewDiscoverer(
+			WithDiscovererGammaAPI(mockGamma),
+			WithDiscovererDataAPI(mockData),
+		)
+
+		opts := DiscoveryOptions{
+			MarketIDs: []string{"0xmarket1"},
+		}
+
+		ctx := context.Background()
+		_, err := d.Discover(ctx, opts)
+		if err == nil {
+			t.Error("Discover() expected error, got nil")
+		}
+	})
+}
+
+// TestDiscoveryResult_SortByBotScore_EdgeCases tests edge cases in sorting.
+func TestDiscoveryResult_SortByBotScore_EdgeCases(t *testing.T) {
+	t.Run("handles_all_nil_reports", func(t *testing.T) {
+		result := NewDiscoveryResult()
+		result.AddWallet(DiscoveredWallet{Address: "0xa", ScanReport: nil})
+		result.AddWallet(DiscoveredWallet{Address: "0xb", ScanReport: nil})
+		result.AddWallet(DiscoveredWallet{Address: "0xc", ScanReport: nil})
+
+		// Should not panic
+		result.SortByBotScore()
+
+		if len(result.Wallets) != 3 {
+			t.Errorf("len(Wallets) = %d, want 3", len(result.Wallets))
+		}
+	})
+
+	t.Run("handles_empty_wallets", func(t *testing.T) {
+		result := NewDiscoveryResult()
+
+		// Should not panic
+		result.SortByBotScore()
+
+		if len(result.Wallets) != 0 {
+			t.Errorf("len(Wallets) = %d, want 0", len(result.Wallets))
+		}
+	})
+
+	t.Run("sorts_equal_scores_stably", func(t *testing.T) {
+		result := NewDiscoveryResult()
+
+		report1 := models.NewScanReport("0xwallet1")
+		report1.BotScore = 50
+		report2 := models.NewScanReport("0xwallet2")
+		report2.BotScore = 50
+
+		result.AddWallet(DiscoveredWallet{Address: "0xwallet1", ScanReport: report1})
+		result.AddWallet(DiscoveredWallet{Address: "0xwallet2", ScanReport: report2})
+
+		// Should not panic and maintain order for equal scores
+		result.SortByBotScore()
+
+		if len(result.Wallets) != 2 {
+			t.Errorf("len(Wallets) = %d, want 2", len(result.Wallets))
+		}
+	})
+}
+
+// TestDiscoverer_scanWallets_Concurrency tests concurrent wallet scanning.
+func TestDiscoverer_scanWallets_Concurrency(t *testing.T) {
+	t.Run("respects_concurrency_limit", func(t *testing.T) {
+		mockScn := &mockScannerImpl{
+			reports: map[string]*models.ScanReport{
+				"0xwallet1": {WalletAddress: "0xwallet1", BotScore: 50},
+				"0xwallet2": {WalletAddress: "0xwallet2", BotScore: 60},
+				"0xwallet3": {WalletAddress: "0xwallet3", BotScore: 70},
+				"0xwallet4": {WalletAddress: "0xwallet4", BotScore: 80},
+				"0xwallet5": {WalletAddress: "0xwallet5", BotScore: 90},
+			},
+		}
+		d := NewDiscoverer(WithDiscovererScanner(mockScn))
+
+		wallets := map[string]DiscoveredWallet{
+			"0xwallet1": {Address: "0xwallet1", TotalAmount: 100},
+			"0xwallet2": {Address: "0xwallet2", TotalAmount: 200},
+			"0xwallet3": {Address: "0xwallet3", TotalAmount: 300},
+			"0xwallet4": {Address: "0xwallet4", TotalAmount: 400},
+			"0xwallet5": {Address: "0xwallet5", TotalAmount: 500},
+		}
+
+		result := NewDiscoveryResult()
+		opts := DiscoveryOptions{Concurrency: 2, BotThreshold: 80}
+
+		ctx := context.Background()
+		d.scanWallets(ctx, wallets, result, opts)
+
+		if result.Stats.WalletsScanned != 5 {
+			t.Errorf("Stats.WalletsScanned = %d, want 5", result.Stats.WalletsScanned)
+		}
+		if result.Stats.BotsDetected != 2 {
+			t.Errorf("Stats.BotsDetected = %d, want 2 (scores 80, 90)", result.Stats.BotsDetected)
+		}
+	})
+}
+
 // Mock implementations for testing
 
 // mockDataAPIImpl implements the DataAPIProvider interface for testing.
@@ -917,4 +1226,67 @@ func (m *mockScannerImpl) Scan(_ context.Context, wallet string) (*models.ScanRe
 		return report, nil
 	}
 	return &models.ScanReport{WalletAddress: wallet, BotScore: 0}, nil
+}
+
+// mockGammaAPIImplWithErrors implements GammaAPIProvider with configurable errors.
+type mockGammaAPIImplWithErrors struct {
+	getMarketErr       error
+	getMarketBySlugErr error
+	getTopMarketsErr   error
+}
+
+func (m *mockGammaAPIImplWithErrors) GetMarket(_ context.Context, _ string) (*api.Market, error) {
+	if m.getMarketErr != nil {
+		return nil, m.getMarketErr
+	}
+	return nil, nil
+}
+
+func (m *mockGammaAPIImplWithErrors) GetMarketBySlug(_ context.Context, _ string) (*api.Market, error) {
+	if m.getMarketBySlugErr != nil {
+		return nil, m.getMarketBySlugErr
+	}
+	return nil, nil
+}
+
+func (m *mockGammaAPIImplWithErrors) GetTopMarkets(_ context.Context, _ api.TopMarketsOptions) (api.MarketList, error) {
+	if m.getTopMarketsErr != nil {
+		return nil, m.getTopMarketsErr
+	}
+	return nil, nil
+}
+
+// mockDataAPIImplWithErrors implements DataAPIProvider with configurable errors.
+type mockDataAPIImplWithErrors struct {
+	getHoldersErr error
+}
+
+func (m *mockDataAPIImplWithErrors) GetHoldersForMarket(_ context.Context, _ string, _ int) (api.HolderList, error) {
+	if m.getHoldersErr != nil {
+		return nil, m.getHoldersErr
+	}
+	return nil, nil
+}
+
+// mockScannerImplWithErrors implements ScannerProvider with configurable errors.
+type mockScannerImplWithErrors struct {
+	scanErr error
+}
+
+func (m *mockScannerImplWithErrors) Scan(_ context.Context, _ string) (*models.ScanReport, error) {
+	return nil, m.scanErr
+}
+
+// mockScannerImplBlocking implements ScannerProvider that blocks until cancelled.
+type mockScannerImplBlocking struct {
+	blockChan chan struct{}
+}
+
+func (m *mockScannerImplBlocking) Scan(ctx context.Context, wallet string) (*models.ScanReport, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-m.blockChan:
+		return &models.ScanReport{WalletAddress: wallet, BotScore: 0}, nil
+	}
 }

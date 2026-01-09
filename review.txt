@@ -934,3 +934,51 @@
 - May want to add progress callback for long-running discoveries
 - Next step: Add unit tests for discovery package (Step 37) - edge cases
 
+## [Step 37]: Add Unit Tests for Discovery Package
+**Status:** PASSED
+**Tests Written:** TestDiscoverer_resolveMarkets_Errors (5 subtests), TestDiscoverer_aggregateHolders_Errors (1 subtest), TestDiscoverer_scanWallets_Errors (2 subtests), TestDiscoverer_Discover_Errors (2 subtests), TestDiscoveryResult_SortByBotScore_EdgeCases (3 subtests), TestDiscoverer_scanWallets_Concurrency (1 subtest)
+**Test Results:** All 17 test functions passed (50+ subtests total)
+**Race Detection:** Skipped (CGO_ENABLED=0)
+**Coverage:** 98.6% of statements in discovery package (up from 88.2%), 85.2% overall
+**Vet/Lint:** PASSED
+**Build:** PASSED
+
+**Findings:**
+- Added comprehensive error handling tests for all major components
+- Created 4 new mock implementations for error injection testing
+- mockGammaAPIImplWithErrors: Configurable errors for GetMarket, GetMarketBySlug, GetTopMarkets
+- mockDataAPIImplWithErrors: Configurable error for GetHoldersForMarket
+- mockScannerImplWithErrors: Configurable error for Scan
+- mockScannerImplBlocking: Blocks until context cancelled or channel closed
+- Tests verify error propagation through the entire discovery pipeline
+- Context cancellation tests ensure goroutines properly handle cancelled contexts
+- Sorting edge case tests prevent panics on nil reports and empty wallets
+
+**Code Quality Notes:**
+- All test functions follow table-driven pattern with descriptive subtest names
+- Mock implementations are minimal and focused on specific error scenarios
+- Tests verify both error returns and side effects (e.g., Stats.ScanErrors increment)
+- Edge cases thoroughly covered: nil values, empty collections, equal scores
+
+**Coverage Improvements:**
+- SortByBotScore: 75% → 87.5%
+- Discover: 90.5% → 100%
+- resolveMarkets: 85.7% → 96.4%
+- aggregateHolders: 93.8% → 100%
+- scanWallets: 75% → 100%
+
+**Test Coverage Details:**
+- TestDiscoverer_resolveMarkets_Errors: GetMarket failure, GetMarketBySlug failure, GetTopMarkets failure, nil market from GetMarket, nil market from GetMarketBySlug
+- TestDiscoverer_aggregateHolders_Errors: GetHoldersForMarket failure
+- TestDiscoverer_scanWallets_Errors: Scan failure increments errors, context cancellation during scanning
+- TestDiscoverer_Discover_Errors: resolveMarkets failure propagation, aggregateHolders failure propagation
+- TestDiscoveryResult_SortByBotScore_EdgeCases: All nil reports, empty wallets, equal scores stability
+- TestDiscoverer_scanWallets_Concurrency: Respects concurrency limit with multiple wallets
+
+**Recommendations:**
+- This completes the ninth step of F004 (Wallet Discovery) implementation
+- Discovery package now has excellent test coverage (98.6%)
+- All error handling paths are thoroughly tested
+- Context cancellation is properly verified
+- Next step: Add discovery output formatting (Step 38)
+

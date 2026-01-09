@@ -332,7 +332,7 @@
       "task": "Add unit tests for discovery package",
       "files": ["internal/discovery/discovery_test.go"],
       "description": "Test market resolution, holder aggregation, deduplication, concurrent scanning",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 38,
