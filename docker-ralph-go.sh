@@ -263,6 +263,32 @@ If ALL tasks in prd.json have 'passes': true, output <promise>COMPLETE</promise>
   echo "$result"
   echo ""
 
+  # Commit and push changes made by Claude (runs on host, not in container)
+  echo "--- Committing and pushing changes from iteration $i ---"
+  if git diff --quiet && git diff --staged --quiet; then
+    echo "No changes to commit"
+  else
+    git add -A
+    # Exclude workflow files that require special OAuth scope
+    git reset HEAD .github/workflows/*.yml 2>/dev/null || true
+
+    if git diff --staged --quiet; then
+      echo "No staged changes to commit"
+    else
+      git commit -m "Iteration $i: Auto-commit from Ralph Loop
+
+Changes made by Claude in Docker sandbox iteration $i.
+See progress.txt and review.txt for details."
+
+      if git push origin HEAD 2>/dev/null; then
+        echo "Successfully pushed changes"
+      else
+        echo "Warning: Push failed (will retry next iteration)"
+      fi
+    fi
+  fi
+  echo ""
+
   if [[ "$result" == *"<promise>COMPLETE</promise>"* ]]; then
     echo "=========================================="
     echo "All PRD tasks completed after $i iterations!"
@@ -275,6 +301,20 @@ If ALL tasks in prd.json have 'passes': true, output <promise>COMPLETE</promise>
   echo "--- Iteration $i complete, starting next fresh context ---"
   echo ""
 done
+
+# Final commit/push for any remaining changes
+echo "--- Final commit and push ---"
+if ! git diff --quiet || ! git diff --staged --quiet; then
+  git add -A
+  git reset HEAD .github/workflows/*.yml 2>/dev/null || true
+  if ! git diff --staged --quiet; then
+    git commit -m "Final: Auto-commit after $1 iterations
+
+Completed Ralph Loop run with $1 iterations.
+See progress.txt and review.txt for details."
+    git push origin HEAD 2>/dev/null || echo "Warning: Final push failed"
+  fi
+fi
 
 echo "=========================================="
 echo "Reached maximum iterations ($1)."
