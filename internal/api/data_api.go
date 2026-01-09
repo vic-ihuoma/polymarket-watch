@@ -177,8 +177,14 @@ func (d *DataAPI) GetTradesWithOptions(ctx context.Context, wallet string, opts 
 // GetAllTrades fetches all trades for a wallet address using pagination.
 // This method handles pagination automatically to retrieve all available trades.
 func (d *DataAPI) GetAllTrades(ctx context.Context, wallet string) (models.TradeList, error) {
+	return d.GetAllTradesWithProgress(ctx, wallet, false)
+}
+
+// GetAllTradesWithProgress fetches all trades with optional progress logging.
+func (d *DataAPI) GetAllTradesWithProgress(ctx context.Context, wallet string, verbose bool) (models.TradeList, error) {
 	var allTrades models.TradeList
 	offset := 0
+	page := 1
 
 	for {
 		opts := TradeQueryOptions{
@@ -193,12 +199,17 @@ func (d *DataAPI) GetAllTrades(ctx context.Context, wallet string) (models.Trade
 
 		allTrades = append(allTrades, trades...)
 
+		if verbose {
+			fmt.Printf("[verbose] Page %d: fetched %d trades (total: %d)\n", page, len(trades), len(allTrades))
+		}
+
 		// If we got fewer trades than the page size, we've reached the end
 		if len(trades) < DefaultPageSize {
 			break
 		}
 
 		offset += DefaultPageSize
+		page++
 	}
 
 	return allTrades, nil
@@ -278,11 +289,11 @@ type Holder struct {
 // UnmarshalJSON implements custom JSON unmarshaling for Holder to handle
 // string-encoded numeric amounts from the Polymarket API.
 func (h *Holder) UnmarshalJSON(data []byte) error {
-	// Intermediate struct with Amount as string
+	// Intermediate struct with Amount as FlexString to handle string or number
 	type holderRaw struct {
-		ProxyWallet string  `json:"proxyWallet"`
-		Amount      string  `json:"amount"`
-		Name        *string `json:"name"`
+		ProxyWallet string            `json:"proxyWallet"`
+		Amount      models.FlexString `json:"amount"`
+		Name        *string           `json:"name"`
 	}
 
 	var raw holderRaw
@@ -295,8 +306,8 @@ func (h *Holder) UnmarshalJSON(data []byte) error {
 		h.Name = *raw.Name
 	}
 
-	if raw.Amount != "" {
-		amount, err := strconv.ParseFloat(raw.Amount, 64)
+	if !raw.Amount.IsEmpty() {
+		amount, err := strconv.ParseFloat(raw.Amount.String(), 64)
 		if err != nil {
 			return fmt.Errorf("parsing amount: %w", err)
 		}

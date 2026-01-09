@@ -14,8 +14,10 @@ import (
 // It fetches trade and position data from the Polymarket API, runs all configured
 // detectors, and aggregates results into a ScanReport.
 type Scanner struct {
-	dataAPI   *api.DataAPI
-	detectors []Detector
+	dataAPI    *api.DataAPI
+	detectors  []Detector
+	verbose    bool
+	tradeLimit int
 }
 
 // ScannerOption configures a Scanner instance.
@@ -39,6 +41,20 @@ func WithDetectors(detectors []Detector) ScannerOption {
 func WithDetector(detector Detector) ScannerOption {
 	return func(s *Scanner) {
 		s.detectors = append(s.detectors, detector)
+	}
+}
+
+// WithVerbose enables verbose logging.
+func WithVerbose(v bool) ScannerOption {
+	return func(s *Scanner) {
+		s.verbose = v
+	}
+}
+
+// WithTradeLimit sets the maximum number of trades to fetch.
+func WithTradeLimit(limit int) ScannerOption {
+	return func(s *Scanner) {
+		s.tradeLimit = limit
 	}
 }
 
@@ -80,18 +96,44 @@ func (s *Scanner) DetectorWeights() map[string]float64 {
 // It returns a ScanReport with the composite bot score and detection signals.
 func (s *Scanner) Scan(ctx context.Context, wallet string) (*models.ScanReport, error) {
 	// Fetch trades
-	trades, err := s.dataAPI.GetAllTrades(ctx, wallet)
+	if s.verbose {
+		if s.tradeLimit > 0 {
+			fmt.Printf("[verbose] Fetching up to %d trades for %s...\n", s.tradeLimit, wallet)
+		} else {
+			fmt.Printf("[verbose] Fetching all trades for %s...\n", wallet)
+		}
+	}
+
+	var trades models.TradeList
+	var err error
+	if s.tradeLimit > 0 {
+		trades, err = s.dataAPI.GetTradesWithOptions(ctx, wallet, api.TradeQueryOptions{Limit: s.tradeLimit})
+	} else {
+		trades, err = s.dataAPI.GetAllTradesWithProgress(ctx, wallet, s.verbose)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("fetching trades: %w", err)
 	}
+	if s.verbose {
+		fmt.Printf("[verbose] Fetched %d trades\n", len(trades))
+	}
 
 	// Fetch positions
+	if s.verbose {
+		fmt.Printf("[verbose] Fetching positions...\n")
+	}
 	positions, err := s.dataAPI.GetAllPositions(ctx, wallet)
 	if err != nil {
 		return nil, fmt.Errorf("fetching positions: %w", err)
 	}
+	if s.verbose {
+		fmt.Printf("[verbose] Fetched %d positions\n", len(positions))
+	}
 
 	// Analyze the data
+	if s.verbose {
+		fmt.Printf("[verbose] Running detection algorithms...\n")
+	}
 	report := s.AnalyzeData(wallet, positions, trades)
 
 	return report, nil

@@ -49,26 +49,26 @@ type Trade struct {
 	Type string `json:"type"`
 }
 
-// tradeJSON is an internal struct for JSON unmarshaling with string numeric fields.
+// tradeJSON is an internal struct for JSON unmarshaling with flexible numeric fields.
 type tradeJSON struct {
-	ID              string  `json:"id"`
-	TakerOrderID    string  `json:"taker_order_id"`
-	Market          string  `json:"market"`
-	AssetID         string  `json:"asset_id"`
-	Side            string  `json:"side"`
-	Size            string  `json:"size"`
-	FeeRateBps      string  `json:"fee_rate_bps"`
-	Price           string  `json:"price"`
-	Status          string  `json:"status"`
-	MatchTime       string  `json:"match_time"`
-	LastUpdate      string  `json:"last_update"`
-	Outcome         string  `json:"outcome"`
-	BucketIndex     string  `json:"bucket_index"`
-	Owner           string  `json:"owner"`
-	MakerAddress    *string `json:"maker_address"`
-	TransactionHash *string `json:"transaction_hash"`
-	TraderSide      string  `json:"trader_side"`
-	Type            string  `json:"type"`
+	ID              string     `json:"id"`
+	TakerOrderID    string     `json:"taker_order_id"`
+	Market          string     `json:"market"`
+	AssetID         string     `json:"asset_id"`
+	Side            string     `json:"side"`
+	Size            FlexString `json:"size"`
+	FeeRateBps      FlexString `json:"fee_rate_bps"`
+	Price           FlexString `json:"price"`
+	Status          string     `json:"status"`
+	MatchTime       string     `json:"match_time"`
+	LastUpdate      string     `json:"last_update"`
+	Outcome         string     `json:"outcome"`
+	BucketIndex     FlexString `json:"bucket_index"`
+	Owner           string     `json:"owner"`
+	MakerAddress    *string    `json:"maker_address"`
+	TransactionHash *string    `json:"transaction_hash"`
+	TraderSide      string     `json:"trader_side"`
+	Type            string     `json:"type"`
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Trade.
@@ -99,32 +99,32 @@ func (t *Trade) UnmarshalJSON(data []byte) error {
 	}
 
 	// Parse numeric strings
-	if raw.Size != "" {
-		size, err := strconv.ParseFloat(raw.Size, 64)
+	if !raw.Size.IsEmpty() {
+		size, err := strconv.ParseFloat(raw.Size.String(), 64)
 		if err != nil {
 			return err
 		}
 		t.Size = size
 	}
 
-	if raw.FeeRateBps != "" {
-		fee, err := strconv.Atoi(raw.FeeRateBps)
+	if !raw.FeeRateBps.IsEmpty() {
+		fee, err := strconv.Atoi(raw.FeeRateBps.String())
 		if err != nil {
 			return err
 		}
 		t.FeeRateBps = fee
 	}
 
-	if raw.Price != "" {
-		price, err := strconv.ParseFloat(raw.Price, 64)
+	if !raw.Price.IsEmpty() {
+		price, err := strconv.ParseFloat(raw.Price.String(), 64)
 		if err != nil {
 			return err
 		}
 		t.Price = price
 	}
 
-	if raw.BucketIndex != "" {
-		idx, err := strconv.Atoi(raw.BucketIndex)
+	if !raw.BucketIndex.IsEmpty() {
+		idx, err := strconv.Atoi(raw.BucketIndex.String())
 		if err != nil {
 			return err
 		}

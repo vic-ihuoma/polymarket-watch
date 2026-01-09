@@ -24,6 +24,7 @@ import (
 var (
 	version = "0.1.0"
 	commit  = "dev"
+	verbose = false
 )
 
 func main() {
@@ -44,6 +45,8 @@ timing patterns, and arbitrage strategies.`,
 		Version: fmt.Sprintf("%s (%s)", version, commit),
 	}
 
+	cmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Enable verbose logging")
+
 	cmd.AddCommand(scanCmd())
 	cmd.AddCommand(batchCmd())
 	cmd.AddCommand(monitorCmd())
@@ -58,6 +61,7 @@ func scanCmd() *cobra.Command {
 		wallet     string
 		jsonOutput bool
 		outputFile string
+		limit      int
 	)
 
 	cmd := &cobra.Command{
@@ -82,7 +86,14 @@ func scanCmd() *cobra.Command {
 			}()
 
 			// Create scanner and run scan
-			s := scanner.NewScanner()
+			var opts []scanner.ScannerOption
+			if verbose {
+				opts = append(opts, scanner.WithVerbose(true))
+			}
+			if limit > 0 {
+				opts = append(opts, scanner.WithTradeLimit(limit))
+			}
+			s := scanner.NewScanner(opts...)
 			report, err := s.Scan(ctx, wallet)
 			if err != nil {
 				return fmt.Errorf("scanning wallet: %w", err)
@@ -96,6 +107,7 @@ func scanCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&wallet, "wallet", "w", "", "Wallet address to scan (required)")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output results as JSON")
 	cmd.Flags().StringVarP(&outputFile, "output", "o", "", "Write output to file")
+	cmd.Flags().IntVarP(&limit, "limit", "l", 0, "Limit number of trades to fetch (0 = all)")
 	cmd.MarkFlagRequired("wallet")
 
 	return cmd
@@ -631,6 +643,7 @@ func discoverCmd() *cobra.Command {
 		concurrency   int
 		noScan        bool
 		botThreshold  int
+		tradeLimit    int
 		jsonOutput    bool
 		outputFile    string
 	)
@@ -683,6 +696,7 @@ Examples:
 				Concurrency:   concurrency,
 				NoScan:        noScan,
 				BotThreshold:  botThreshold,
+				TradeLimit:    tradeLimit,
 			}
 
 			// Set up context with signal handling
@@ -726,6 +740,7 @@ Examples:
 	cmd.Flags().IntVarP(&concurrency, "concurrency", "c", 3, "Number of concurrent wallet scans")
 	cmd.Flags().BoolVar(&noScan, "no-scan", false, "Skip wallet scanning (only list holders)")
 	cmd.Flags().IntVarP(&botThreshold, "threshold", "t", 80, "Bot score threshold for detection (0-100)")
+	cmd.Flags().IntVar(&tradeLimit, "trade-limit", 100, "Limit trades fetched per wallet for faster scanning (0 = all)")
 
 	// Output flags
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output results as JSON")

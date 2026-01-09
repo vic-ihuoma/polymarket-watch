@@ -671,11 +671,28 @@ func TestGammaAPI_GetTopMarkets(t *testing.T) {
 
 	t.Run("filters only active markets", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			markets := []map[string]interface{}{
+			// Simulate server-side filtering based on query params
+			active := r.URL.Query().Get("active")
+			closed := r.URL.Query().Get("closed")
+			
+			allMarkets := []map[string]interface{}{
 				{"id": "market1", "conditionId": "cond1", "volume": "50000", "active": true, "closed": false},
 				{"id": "market2", "conditionId": "cond2", "volume": "100000", "active": false, "closed": true},
 				{"id": "market3", "conditionId": "cond3", "volume": "75000", "active": true, "closed": false},
 			}
+			
+			var markets []map[string]interface{}
+			for _, m := range allMarkets {
+				// Filter based on query params if provided
+				if active == "true" && m["active"] != true {
+					continue
+				}
+				if closed == "false" && m["closed"] != false {
+					continue
+				}
+				markets = append(markets, m)
+			}
+			
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(markets)
 		}))

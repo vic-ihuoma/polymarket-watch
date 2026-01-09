@@ -53,6 +53,8 @@ type DiscoveryOptions struct {
 	NoScan bool `json:"no_scan"`
 	// BotThreshold is the bot score threshold for flagging wallets as bots (0-100).
 	BotThreshold int `json:"bot_threshold,omitempty"`
+	// TradeLimit limits the number of trades to fetch per wallet (0 = all).
+	TradeLimit int `json:"trade_limit,omitempty"`
 }
 
 // Validate checks if the options are valid.
@@ -301,6 +303,11 @@ func (d *Discoverer) Discover(ctx context.Context, opts DiscoveryOptions) (*Disc
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}
 	opts.ApplyDefaults()
+
+	// Create scanner with TradeLimit if specified
+	if opts.TradeLimit > 0 {
+		d.scanner = scanner.NewScanner(scanner.WithTradeLimit(opts.TradeLimit))
+	}
 
 	result := NewDiscoveryResult()
 

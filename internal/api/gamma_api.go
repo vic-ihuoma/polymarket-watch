@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/victorihuoma/polymarket-watch/internal/models"
 )
 
 const (
@@ -92,21 +94,21 @@ type Market struct {
 func (m *Market) UnmarshalJSON(data []byte) error {
 	// Intermediate struct to handle string-encoded numerics and nullable fields
 	type marketJSON struct {
-		ID                 string `json:"id"`
-		Question           string `json:"question"`
-		ConditionID        string `json:"conditionId"`
-		Slug               string `json:"slug"`
-		ResolutionSource   string `json:"resolutionSource"`
-		EndDate            string `json:"endDate"`
-		Liquidity          string `json:"liquidity"`
-		Volume             string `json:"volume"`
-		Volume24hr         string `json:"volume24hr"`
-		Active             bool   `json:"active"`
-		Closed             bool   `json:"closed"`
-		MarketMakerAddress string `json:"marketMakerAddress"`
-		OutcomePrices      string `json:"outcomePrices"`
-		Outcomes           string `json:"outcomes"`
-		ClobTokenIds       string `json:"clobTokenIds"`
+		ID                 string            `json:"id"`
+		Question           string            `json:"question"`
+		ConditionID        string            `json:"conditionId"`
+		Slug               string            `json:"slug"`
+		ResolutionSource   string            `json:"resolutionSource"`
+		EndDate            string            `json:"endDate"`
+		Liquidity          models.FlexString `json:"liquidity"`
+		Volume             models.FlexString `json:"volume"`
+		Volume24hr         models.FlexString `json:"volume24hr"`
+		Active             bool              `json:"active"`
+		Closed             bool              `json:"closed"`
+		MarketMakerAddress string            `json:"marketMakerAddress"`
+		OutcomePrices      string            `json:"outcomePrices"`
+		Outcomes           string            `json:"outcomes"`
+		ClobTokenIds       string            `json:"clobTokenIds"`
 	}
 
 	var mj marketJSON
@@ -136,24 +138,24 @@ func (m *Market) UnmarshalJSON(data []byte) error {
 	}
 
 	// Parse numeric fields (may be empty strings)
-	if mj.Liquidity != "" {
-		liquidity, err := strconv.ParseFloat(mj.Liquidity, 64)
+	if !mj.Liquidity.IsEmpty() {
+		liquidity, err := strconv.ParseFloat(mj.Liquidity.String(), 64)
 		if err != nil {
 			return fmt.Errorf("parsing liquidity: %w", err)
 		}
 		m.Liquidity = liquidity
 	}
 
-	if mj.Volume != "" {
-		volume, err := strconv.ParseFloat(mj.Volume, 64)
+	if !mj.Volume.IsEmpty() {
+		volume, err := strconv.ParseFloat(mj.Volume.String(), 64)
 		if err != nil {
 			return fmt.Errorf("parsing volume: %w", err)
 		}
 		m.Volume = volume
 	}
 
-	if mj.Volume24hr != "" {
-		volume24hr, err := strconv.ParseFloat(mj.Volume24hr, 64)
+	if !mj.Volume24hr.IsEmpty() {
+		volume24hr, err := strconv.ParseFloat(mj.Volume24hr.String(), 64)
 		if err != nil {
 			return fmt.Errorf("parsing volume24hr: %w", err)
 		}
@@ -392,17 +394,19 @@ func (g *GammaAPI) GetMarketsWithOptions(ctx context.Context, opts MarketQueryOp
 // It only returns active, non-closed markets. The sorting is always descending (highest values first).
 // If SortBy is empty, defaults to sorting by volume.
 func (g *GammaAPI) GetTopMarkets(ctx context.Context, opts TopMarketsOptions) (MarketList, error) {
-	// Fetch all markets first
-	markets, err := g.GetMarkets(ctx)
+	// Fetch active, non-closed markets directly from API
+	active := true
+	closed := false
+	markets, err := g.GetMarketsWithOptions(ctx, MarketQueryOptions{
+		Active: &active,
+		Closed: &closed,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	// Filter by active status first
-	filtered := markets.FilterActive()
-
 	// Apply min thresholds
-	filtered = filtered.filterByThresholds(opts.MinVolume, opts.MinVolume24hr, opts.MinLiquidity)
+	filtered := markets.filterByThresholds(opts.MinVolume, opts.MinVolume24hr, opts.MinLiquidity)
 
 	// Determine sort field (default to volume)
 	sortBy := opts.SortBy

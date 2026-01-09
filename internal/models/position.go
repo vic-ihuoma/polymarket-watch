@@ -43,24 +43,24 @@ type Position struct {
 	Mergeable bool `json:"mergeable"`
 }
 
-// positionJSON is an internal struct for JSON unmarshaling with string numeric fields.
+// positionJSON is an internal struct for JSON unmarshaling with flexible numeric fields.
 type positionJSON struct {
-	ProxyWallet  string `json:"proxyWallet"`
-	Asset        string `json:"asset"`
-	ConditionID  string `json:"conditionId"`
-	Outcome      string `json:"outcome"`
-	OutcomeIndex string `json:"outcomeIndex"`
-	Size         string `json:"size"`
-	AvgPrice     string `json:"avgPrice"`
-	InitialValue string `json:"initialValue"`
-	CurrentValue string `json:"currentValue"`
-	CashBalance  string `json:"cashBalance"`
-	PnL          string `json:"pnl"`
-	RealizedPnL  string `json:"realizedPnl"`
-	PercentPnL   string `json:"percentPnl"`
-	CurPrice     string `json:"curPrice"`
-	Redeemable   bool   `json:"redeemable"`
-	Mergeable    bool   `json:"mergeable"`
+	ProxyWallet  string     `json:"proxyWallet"`
+	Asset        string     `json:"asset"`
+	ConditionID  string     `json:"conditionId"`
+	Outcome      string     `json:"outcome"`
+	OutcomeIndex FlexString `json:"outcomeIndex"`
+	Size         FlexString `json:"size"`
+	AvgPrice     FlexString `json:"avgPrice"`
+	InitialValue FlexString `json:"initialValue"`
+	CurrentValue FlexString `json:"currentValue"`
+	CashBalance  FlexString `json:"cashBalance"`
+	PnL          FlexString `json:"pnl"`
+	RealizedPnL  FlexString `json:"realizedPnl"`
+	PercentPnL   FlexString `json:"percentPnl"`
+	CurPrice     FlexString `json:"curPrice"`
+	Redeemable   bool       `json:"redeemable"`
+	Mergeable    bool       `json:"mergeable"`
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for Position.
@@ -79,8 +79,8 @@ func (p *Position) UnmarshalJSON(data []byte) error {
 	p.Mergeable = raw.Mergeable
 
 	// Parse outcomeIndex
-	if raw.OutcomeIndex != "" {
-		idx, err := strconv.Atoi(raw.OutcomeIndex)
+	if !raw.OutcomeIndex.IsEmpty() {
+		idx, err := strconv.Atoi(raw.OutcomeIndex.String())
 		if err != nil {
 			return err
 		}
@@ -88,72 +88,72 @@ func (p *Position) UnmarshalJSON(data []byte) error {
 	}
 
 	// Parse numeric string fields
-	if raw.Size != "" {
-		size, err := strconv.ParseFloat(raw.Size, 64)
+	if !raw.Size.IsEmpty() {
+		size, err := strconv.ParseFloat(raw.Size.String(), 64)
 		if err != nil {
 			return err
 		}
 		p.Size = size
 	}
 
-	if raw.AvgPrice != "" {
-		avgPrice, err := strconv.ParseFloat(raw.AvgPrice, 64)
+	if !raw.AvgPrice.IsEmpty() {
+		avgPrice, err := strconv.ParseFloat(raw.AvgPrice.String(), 64)
 		if err != nil {
 			return err
 		}
 		p.AvgPrice = avgPrice
 	}
 
-	if raw.InitialValue != "" {
-		initialValue, err := strconv.ParseFloat(raw.InitialValue, 64)
+	if !raw.InitialValue.IsEmpty() {
+		initialValue, err := strconv.ParseFloat(raw.InitialValue.String(), 64)
 		if err != nil {
 			return err
 		}
 		p.InitialValue = initialValue
 	}
 
-	if raw.CurrentValue != "" {
-		currentValue, err := strconv.ParseFloat(raw.CurrentValue, 64)
+	if !raw.CurrentValue.IsEmpty() {
+		currentValue, err := strconv.ParseFloat(raw.CurrentValue.String(), 64)
 		if err != nil {
 			return err
 		}
 		p.CurrentValue = currentValue
 	}
 
-	if raw.CashBalance != "" {
-		cashBalance, err := strconv.ParseFloat(raw.CashBalance, 64)
+	if !raw.CashBalance.IsEmpty() {
+		cashBalance, err := strconv.ParseFloat(raw.CashBalance.String(), 64)
 		if err != nil {
 			return err
 		}
 		p.CashBalance = cashBalance
 	}
 
-	if raw.PnL != "" {
-		pnl, err := strconv.ParseFloat(raw.PnL, 64)
+	if !raw.PnL.IsEmpty() {
+		pnl, err := strconv.ParseFloat(raw.PnL.String(), 64)
 		if err != nil {
 			return err
 		}
 		p.PnL = pnl
 	}
 
-	if raw.RealizedPnL != "" {
-		realizedPnl, err := strconv.ParseFloat(raw.RealizedPnL, 64)
+	if !raw.RealizedPnL.IsEmpty() {
+		realizedPnl, err := strconv.ParseFloat(raw.RealizedPnL.String(), 64)
 		if err != nil {
 			return err
 		}
 		p.RealizedPnL = realizedPnl
 	}
 
-	if raw.PercentPnL != "" {
-		percentPnl, err := strconv.ParseFloat(raw.PercentPnL, 64)
+	if !raw.PercentPnL.IsEmpty() {
+		percentPnl, err := strconv.ParseFloat(raw.PercentPnL.String(), 64)
 		if err != nil {
 			return err
 		}
 		p.PercentPnL = percentPnl
 	}
 
-	if raw.CurPrice != "" {
-		curPrice, err := strconv.ParseFloat(raw.CurPrice, 64)
+	if !raw.CurPrice.IsEmpty() {
+		curPrice, err := strconv.ParseFloat(raw.CurPrice.String(), 64)
 		if err != nil {
 			return err
 		}
