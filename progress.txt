@@ -1107,3 +1107,46 @@ Monitor command:
 - Methods integrate with existing Holder/HolderToken/HolderList types from Step 23
 - Next steps: Add TopMarketsOptions to gamma_api.go (Step 27)
 
+## Iteration 23: TopMarketsOptions Implementation (Step 27)
+
+### Tasks Completed:
+- Step 27: Add TopMarketsOptions to gamma_api.go
+
+### Key Decisions:
+- TopMarketsOptions struct with SortBy, MinVolume, MinVolume24hr, MinLiquidity, Limit fields
+- toParams() method follows established patterns from MarketQueryOptions
+- SortBy accepts string values: "volume", "liquidity", "volume24hr"
+- Zero/empty values are correctly omitted from params map
+- MinVolume fields use FormatFloat with -1 precision for clean output
+
+### Files Changed:
+- internal/api/gamma_api.go (added TopMarketsOptions struct and toParams method)
+- internal/api/gamma_api_test.go (added TestTopMarketsOptions with 6 subtests)
+
+### Test Results:
+- All 6 subtests passed for TopMarketsOptions
+- TestTopMarketsOptions/converts_to_params_with_all_fields: Validates all fields conversion
+- TestTopMarketsOptions/sorts_by_liquidity: Validates liquidity sort
+- TestTopMarketsOptions/sorts_by_volume24hr: Validates volume24hr sort
+- TestTopMarketsOptions/omits_zero_values: Validates zero value omission
+- TestTopMarketsOptions/omits_empty_sort_by: Validates empty sort_by omission
+- TestTopMarketsOptions/handles_decimal_min_values: Validates decimal formatting
+- API package coverage: 83.9% of statements (up from 83.3%)
+- Overall coverage: 82.6%
+- Build: PASSED
+- Vet: PASSED
+- gofmt: PASSED
+
+### API Design:
+- TopMarketsOptions follows established patterns from MarketQueryOptions
+- SortBy field is optional (empty string = omit from params)
+- MinVolume, MinVolume24hr, MinLiquidity use float64 for flexible thresholds
+- Limit is an int for result count limiting
+- toParams() returns map[string]string for URL query encoding
+
+### Notes:
+- Fourth step of F004 (Wallet Discovery) implementation
+- TopMarketsOptions will be used by GetTopMarkets method (Step 28)
+- Consistent with existing query options implementations
+- Next steps: Implement GetTopMarkets method (Step 28)
+

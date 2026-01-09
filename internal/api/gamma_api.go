@@ -255,6 +255,44 @@ func (o MarketQueryOptions) toParams() map[string]string {
 	return params
 }
 
+// TopMarketsOptions configures options for fetching top markets by various metrics.
+type TopMarketsOptions struct {
+	// SortBy specifies the field to sort markets by.
+	// Valid values: "volume", "liquidity", "volume24hr".
+	SortBy string
+	// MinVolume is the minimum total volume threshold for filtering markets.
+	MinVolume float64
+	// MinVolume24hr is the minimum 24-hour volume threshold for filtering markets.
+	MinVolume24hr float64
+	// MinLiquidity is the minimum liquidity threshold for filtering markets.
+	MinLiquidity float64
+	// Limit is the maximum number of markets to return.
+	Limit int
+}
+
+// toParams converts options to URL query parameters.
+func (o TopMarketsOptions) toParams() map[string]string {
+	params := make(map[string]string)
+
+	if o.SortBy != "" {
+		params["sort_by"] = o.SortBy
+	}
+	if o.MinVolume > 0 {
+		params["min_volume"] = strconv.FormatFloat(o.MinVolume, 'f', -1, 64)
+	}
+	if o.MinVolume24hr > 0 {
+		params["min_volume_24hr"] = strconv.FormatFloat(o.MinVolume24hr, 'f', -1, 64)
+	}
+	if o.MinLiquidity > 0 {
+		params["min_liquidity"] = strconv.FormatFloat(o.MinLiquidity, 'f', -1, 64)
+	}
+	if o.Limit > 0 {
+		params["limit"] = strconv.Itoa(o.Limit)
+	}
+
+	return params
+}
+
 // GetMarket fetches a single market by its condition ID.
 func (g *GammaAPI) GetMarket(ctx context.Context, conditionID string) (*Market, error) {
 	url := g.baseURL + "/markets/" + conditionID

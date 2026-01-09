@@ -252,7 +252,7 @@
       "task": "Add TopMarketsOptions to gamma_api.go",
       "files": ["internal/api/gamma_api.go"],
       "description": "Add TopMarketsOptions struct with SortBy, MinVolume, MinVolume24hr, MinLiquidity, Limit fields",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 28,

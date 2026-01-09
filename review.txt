@@ -726,3 +726,33 @@
 - Consider adding GetHoldersForMarkets(ctx, conditionIDs, limit) for batch queries in future
 - May want to add TotalAmount() method to HolderList for aggregation
 
+## [Step 27]: Add TopMarketsOptions to gamma_api.go
+**Status:** PASSED
+**Tests Written:** TestTopMarketsOptions (6 subtests: converts_to_params_with_all_fields, sorts_by_liquidity, sorts_by_volume24hr, omits_zero_values, omits_empty_sort_by, handles_decimal_min_values)
+**Test Results:** All 6 subtests passed (0.00s)
+**Race Detection:** Not required for data types (no concurrency)
+**Coverage:** 83.9% of statements in api package, 82.6% overall
+**Vet/Lint:** PASSED
+**Build:** PASSED
+
+**Findings:**
+- TopMarketsOptions struct correctly handles SortBy, MinVolume, MinVolume24hr, MinLiquidity, Limit fields
+- toParams() method follows established patterns from MarketQueryOptions
+- SortBy accepts string values for flexible sorting ("volume", "liquidity", "volume24hr")
+- Zero/empty values are correctly omitted from params map
+- Float values format cleanly using FormatFloat with -1 precision
+- Pattern consistent with existing query options implementations
+
+**Code Quality Notes:**
+- All exported types and methods have godoc comments
+- Table-driven tests with subtests for comprehensive coverage
+- Follows Go idioms and project conventions
+- Consistent with existing MarketQueryOptions and HolderQueryOptions implementations
+- Handles edge cases: empty sort_by, zero values, decimal formatting
+
+**Recommendations:**
+- This is fourth step of F004 (Wallet Discovery) implementation
+- Next step: Implement GetTopMarkets method (Step 28)
+- TopMarketsOptions will be used by GetTopMarkets for fetching top markets by volume/liquidity
+- Consider adding validation for SortBy field values in future iteration
+

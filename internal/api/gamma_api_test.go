@@ -321,3 +321,111 @@ func TestGammaAPIInterface(t *testing.T) {
 func BoolPtr(b bool) *bool {
 	return &b
 }
+
+func TestTopMarketsOptions(t *testing.T) {
+	t.Run("converts to params with all fields", func(t *testing.T) {
+		opts := TopMarketsOptions{
+			SortBy:        "volume",
+			MinVolume:     10000.0,
+			MinVolume24hr: 1000.0,
+			MinLiquidity:  5000.0,
+			Limit:         20,
+		}
+		params := opts.toParams()
+
+		if params["sort_by"] != "volume" {
+			t.Errorf("expected sort_by 'volume', got %s", params["sort_by"])
+		}
+		if params["min_volume"] != "10000" {
+			t.Errorf("expected min_volume '10000', got %s", params["min_volume"])
+		}
+		if params["min_volume_24hr"] != "1000" {
+			t.Errorf("expected min_volume_24hr '1000', got %s", params["min_volume_24hr"])
+		}
+		if params["min_liquidity"] != "5000" {
+			t.Errorf("expected min_liquidity '5000', got %s", params["min_liquidity"])
+		}
+		if params["limit"] != "20" {
+			t.Errorf("expected limit '20', got %s", params["limit"])
+		}
+	})
+
+	t.Run("sorts by liquidity", func(t *testing.T) {
+		opts := TopMarketsOptions{
+			SortBy: "liquidity",
+		}
+		params := opts.toParams()
+
+		if params["sort_by"] != "liquidity" {
+			t.Errorf("expected sort_by 'liquidity', got %s", params["sort_by"])
+		}
+	})
+
+	t.Run("sorts by volume24hr", func(t *testing.T) {
+		opts := TopMarketsOptions{
+			SortBy: "volume24hr",
+		}
+		params := opts.toParams()
+
+		if params["sort_by"] != "volume24hr" {
+			t.Errorf("expected sort_by 'volume24hr', got %s", params["sort_by"])
+		}
+	})
+
+	t.Run("omits zero values", func(t *testing.T) {
+		opts := TopMarketsOptions{
+			SortBy: "volume",
+			Limit:  10,
+		}
+		params := opts.toParams()
+
+		if params["sort_by"] != "volume" {
+			t.Errorf("expected sort_by 'volume', got %s", params["sort_by"])
+		}
+		if params["limit"] != "10" {
+			t.Errorf("expected limit '10', got %s", params["limit"])
+		}
+		if _, exists := params["min_volume"]; exists {
+			t.Error("expected min_volume to be omitted")
+		}
+		if _, exists := params["min_volume_24hr"]; exists {
+			t.Error("expected min_volume_24hr to be omitted")
+		}
+		if _, exists := params["min_liquidity"]; exists {
+			t.Error("expected min_liquidity to be omitted")
+		}
+	})
+
+	t.Run("omits empty sort_by", func(t *testing.T) {
+		opts := TopMarketsOptions{
+			MinVolume: 5000.0,
+		}
+		params := opts.toParams()
+
+		if _, exists := params["sort_by"]; exists {
+			t.Error("expected sort_by to be omitted")
+		}
+		if params["min_volume"] != "5000" {
+			t.Errorf("expected min_volume '5000', got %s", params["min_volume"])
+		}
+	})
+
+	t.Run("handles decimal min values", func(t *testing.T) {
+		opts := TopMarketsOptions{
+			MinVolume:     1234.56,
+			MinVolume24hr: 100.5,
+			MinLiquidity:  999.99,
+		}
+		params := opts.toParams()
+
+		if params["min_volume"] != "1234.56" {
+			t.Errorf("expected min_volume '1234.56', got %s", params["min_volume"])
+		}
+		if params["min_volume_24hr"] != "100.5" {
+			t.Errorf("expected min_volume_24hr '100.5', got %s", params["min_volume_24hr"])
+		}
+		if params["min_liquidity"] != "999.99" {
+			t.Errorf("expected min_liquidity '999.99', got %s", params["min_liquidity"])
+		}
+	})
+}
