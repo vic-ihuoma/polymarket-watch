@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/victorihuoma/polymarket-watch/internal/discovery"
 	"github.com/victorihuoma/polymarket-watch/internal/models"
 	"github.com/victorihuoma/polymarket-watch/internal/output"
 	"github.com/victorihuoma/polymarket-watch/internal/scanner"
@@ -46,6 +47,7 @@ timing patterns, and arbitrage strategies.`,
 	cmd.AddCommand(scanCmd())
 	cmd.AddCommand(batchCmd())
 	cmd.AddCommand(monitorCmd())
+	cmd.AddCommand(discoverCmd())
 
 	return cmd
 }
@@ -612,4 +614,147 @@ func outputAlert(event MonitorEvent, jsonOutput bool) {
 	} else {
 		fmt.Println(formatMonitorAlert(event))
 	}
+}
+
+// discoverCmd creates the discover subcommand for wallet discovery.
+func discoverCmd() *cobra.Command {
+	var (
+		marketIDs     []string
+		marketSlugs   []string
+		autoDiscover  bool
+		topN          int
+		sortBy        string
+		minVolume     float64
+		minVolume24hr float64
+		minLiquidity  float64
+		holdersLimit  int
+		concurrency   int
+		noScan        bool
+		botThreshold  int
+		jsonOutput    bool
+		outputFile    string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "discover",
+		Short: "Discover suspicious wallets from top market holders",
+		Long: `Discover potential bot wallets by scanning holders of markets.
+
+Markets can be specified explicitly by ID or slug, or discovered automatically
+by selecting the top markets by volume or liquidity.
+
+Examples:
+  # Auto-discover top 5 markets by volume and scan their holders
+  polymarket-watch discover --auto --top 5
+
+  # Scan holders of specific markets by slug
+  polymarket-watch discover --slug "will-trump-win-2024" --slug "bitcoin-100k"
+
+  # Scan holders of specific markets by condition ID
+  polymarket-watch discover --market "0x1234..." --market "0x5678..."
+
+  # Auto-discover with filters
+  polymarket-watch discover --auto --top 10 --sort liquidity --min-volume 100000
+
+  # Skip wallet scanning (only list holders)
+  polymarket-watch discover --auto --top 3 --no-scan`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate that at least one input source is provided
+			if len(marketIDs) == 0 && len(marketSlugs) == 0 && !autoDiscover {
+				return fmt.Errorf("must specify --market, --slug, or --auto")
+			}
+
+			// If auto-discover is enabled, topN must be specified
+			if autoDiscover && topN <= 0 {
+				return fmt.Errorf("--top must be > 0 when --auto is enabled")
+			}
+
+			// Build discovery options
+			opts := discovery.DiscoveryOptions{
+				MarketIDs:     marketIDs,
+				MarketSlugs:   marketSlugs,
+				AutoDiscover:  autoDiscover,
+				TopN:          topN,
+				SortBy:        sortBy,
+				MinVolume:     minVolume,
+				MinVolume24hr: minVolume24hr,
+				MinLiquidity:  minLiquidity,
+				HoldersLimit:  holdersLimit,
+				Concurrency:   concurrency,
+				NoScan:        noScan,
+				BotThreshold:  botThreshold,
+			}
+
+			// Set up context with signal handling
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			sigChan := make(chan os.Signal, 1)
+			signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+			go func() {
+				<-sigChan
+				fmt.Fprintln(os.Stderr, "\nInterrupted, cancelling discovery...")
+				cancel()
+			}()
+
+			// Create discoverer and run discovery
+			d := discovery.NewDiscoverer()
+			result, err := d.Discover(ctx, opts)
+			if err != nil {
+				return fmt.Errorf("discovery failed: %w", err)
+			}
+
+			// Output results
+			return outputDiscoveryResult(result, jsonOutput, outputFile)
+		},
+	}
+
+	// Input source flags
+	cmd.Flags().StringSliceVarP(&marketIDs, "market", "m", nil, "Market condition ID(s) to scan (can be specified multiple times)")
+	cmd.Flags().StringSliceVarP(&marketSlugs, "slug", "s", nil, "Market slug(s) to scan (can be specified multiple times)")
+	cmd.Flags().BoolVar(&autoDiscover, "auto", false, "Auto-discover top markets")
+	cmd.Flags().IntVar(&topN, "top", 0, "Number of top markets to scan (requires --auto)")
+
+	// Auto-discover filter flags
+	cmd.Flags().StringVar(&sortBy, "sort", "volume", "Sort markets by: volume, liquidity, volume24hr")
+	cmd.Flags().Float64Var(&minVolume, "min-volume", 0, "Minimum total volume for auto-discovered markets")
+	cmd.Flags().Float64Var(&minVolume24hr, "min-volume-24hr", 0, "Minimum 24-hour volume for auto-discovered markets")
+	cmd.Flags().Float64Var(&minLiquidity, "min-liquidity", 0, "Minimum liquidity for auto-discovered markets")
+
+	// Scanning options
+	cmd.Flags().IntVar(&holdersLimit, "limit", 20, "Maximum number of holders to fetch per market (max 20)")
+	cmd.Flags().IntVarP(&concurrency, "concurrency", "c", 3, "Number of concurrent wallet scans")
+	cmd.Flags().BoolVar(&noScan, "no-scan", false, "Skip wallet scanning (only list holders)")
+	cmd.Flags().IntVarP(&botThreshold, "threshold", "t", 80, "Bot score threshold for detection (0-100)")
+
+	// Output flags
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output results as JSON")
+	cmd.Flags().StringVarP(&outputFile, "output", "o", "", "Write output to file")
+
+	return cmd
+}
+
+// outputDiscoveryResult outputs discovery results.
+func outputDiscoveryResult(result *discovery.DiscoveryResult, jsonOutput bool, outputFile string) error {
+	if outputFile != "" {
+		if jsonOutput {
+			return output.WriteDiscoveryToFile(result, outputFile)
+		}
+		// For terminal output to file, create file writer
+		file, err := os.Create(outputFile)
+		if err != nil {
+			return fmt.Errorf("creating output file: %w", err)
+		}
+		defer file.Close()
+		formatter := output.NewTerminalOutput(output.WithWriter(file), output.WithColor(false))
+		return formatter.PrintDiscoveryResult(result)
+	}
+
+	if jsonOutput {
+		jo := output.NewJSONOutput()
+		return jo.PrintDiscoveryResult(result)
+	}
+
+	formatter := output.NewTerminalOutput()
+	return formatter.PrintDiscoveryResult(result)
 }

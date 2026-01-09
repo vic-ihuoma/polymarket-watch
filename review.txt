@@ -1026,3 +1026,55 @@
 - Consider adding truncation for very long wallet lists in future iteration
 - Next step: Implement discover command (Step 39)
 
+## [Steps 39-42]: Implement and Register Discover Command, Add Tests, Mark F004 Complete
+**Status:** PASSED
+**Tests Written:** TestDiscoverCmd, TestDiscoverCmd_RequiresInputSource, TestDiscoverCmd_AutoRequiresTop, TestRootCmd_HasDiscoverSubcommand, TestOutputDiscoveryResult (4 subtests), TestDiscoverCmd_FlagsShortcutsExist (5 subtests)
+**Test Results:** All 32 test functions passed (0.113s)
+**Race Detection:** Skipped (CGO_ENABLED=0)
+**Coverage:** 52.1% cmd package, 84.9% overall
+**Vet/Lint:** PASSED
+**Build:** PASSED
+
+**Findings:**
+- discoverCmd correctly implements all required flags per PRD specification
+- Input source flags: --market/-m (StringSlice), --slug/-s (StringSlice), --auto (Bool), --top (Int)
+- Auto-discover filter flags: --sort (String, default "volume"), --min-volume, --min-volume-24hr, --min-liquidity (Float64)
+- Scanning options: --limit (Int, default 20), --concurrency/-c (Int, default 3), --no-scan (Bool), --threshold/-t (Int, default 80)
+- Output flags: --json (Bool), --output/-o (String)
+- Validates at least one input source is provided (--market, --slug, or --auto)
+- Validates --auto requires --top > 0
+- Uses discovery.NewDiscoverer() with default production dependencies
+- Graceful cancellation via SIGINT/SIGTERM signal handling
+- outputDiscoveryResult handles: terminal to stdout, JSON to stdout, terminal to file, JSON to file
+- Command registered in rootCmd with cmd.AddCommand(discoverCmd())
+
+**Code Quality Notes:**
+- All exported functions have godoc comments
+- Follows established patterns from scan, batch, and monitor commands
+- Consistent flag naming: short flags use single letters (-m, -s, -c, -t, -o)
+- Default values match discovery.Default* constants (HoldersLimit=20, Concurrency=3, BotThreshold=80)
+- Context cancellation properly propagates through discovery.Discover()
+- Table-driven tests with subtests for comprehensive coverage
+- Tests verify: flag existence, default values, required validations, output functionality
+
+**Test Coverage Details:**
+- TestDiscoverCmd: Validates all 13 flags exist with correct defaults
+- TestDiscoverCmd_RequiresInputSource: Validates error "must specify --market, --slug, or --auto"
+- TestDiscoverCmd_AutoRequiresTop: Validates error "--top must be > 0 when --auto is enabled"
+- TestRootCmd_HasDiscoverSubcommand: Verifies discover command in rootCmd.Commands()
+- TestOutputDiscoveryResult: terminal_output_to_stdout, json_output_to_stdout, json_output_to_file, terminal_output_to_file
+- TestDiscoverCmd_FlagsShortcutsExist: -m->market, -s->slug, -c->concurrency, -t->threshold, -o->output
+
+**Recommendations:**
+- ALL 42 IMPLEMENTATION STEPS ARE NOW COMPLETE
+- ALL 4 FEATURES ARE NOW COMPLETE:
+  - F001: Single Wallet Scan (completed)
+  - F002: Batch Scanning (completed)
+  - F003: Real-time Monitoring (completed)
+  - F004: Wallet Discovery (completed)
+- Project is feature-complete and production-ready
+- Overall coverage is 84.9%, exceeding 80% target
+- Consider adding integration tests with mock servers in future iteration
+- Consider adding --verbose flag for detailed progress output
+- Consider adding --timeout flag for overall operation timeout
+

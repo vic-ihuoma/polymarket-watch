@@ -36,7 +36,7 @@
       "name": "Wallet Discovery",
       "description": "Discover suspicious wallets by scanning top traders on a market",
       "priority": "P2",
-      "status": "planned"
+      "status": "completed"
     }
   ],
   "implementation_steps": [
@@ -348,7 +348,7 @@
       "task": "Implement discover command",
       "files": ["cmd/polymarket-watch/main.go"],
       "description": "Add discoverCmd() with all flags: --market, --slug, --auto, --top, --sort, --min-volume, --limit, --no-scan, --concurrency, --json, --output",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 40,
@@ -356,7 +356,7 @@
       "task": "Register discover command",
       "files": ["cmd/polymarket-watch/main.go"],
       "description": "Add discover command to rootCmd(), update help text",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 41,
@@ -364,7 +364,7 @@
       "task": "Add CLI integration tests for discover",
       "files": ["cmd/polymarket-watch/main_test.go"],
       "description": "Test discover command flag parsing, validation, error handling",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 42,
@@ -372,7 +372,7 @@
       "task": "Mark F004 as completed",
       "files": ["prd.json"],
       "description": "Update F004 status to completed after all steps pass",
-      "status": "planned"
+      "status": "completed"
     }
   ],
   "api_endpoints": {

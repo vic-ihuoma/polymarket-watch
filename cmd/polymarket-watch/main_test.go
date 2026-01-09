@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/victorihuoma/polymarket-watch/internal/discovery"
 	"github.com/victorihuoma/polymarket-watch/internal/models"
 )
 
@@ -631,6 +632,238 @@ func TestShouldAlert(t *testing.T) {
 			result := shouldAlert(tt.score, tt.threshold)
 			if result != tt.expected {
 				t.Errorf("shouldAlert(%d, %d) = %v, want %v", tt.score, tt.threshold, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDiscoverCmd(t *testing.T) {
+	cmd := discoverCmd()
+
+	if cmd.Use != "discover" {
+		t.Errorf("expected Use 'discover', got '%s'", cmd.Use)
+	}
+
+	// Check input source flags exist
+	flag := cmd.Flags().Lookup("market")
+	if flag == nil {
+		t.Error("expected --market flag")
+	}
+
+	flag = cmd.Flags().Lookup("slug")
+	if flag == nil {
+		t.Error("expected --slug flag")
+	}
+
+	flag = cmd.Flags().Lookup("auto")
+	if flag == nil {
+		t.Error("expected --auto flag")
+	}
+
+	flag = cmd.Flags().Lookup("top")
+	if flag == nil {
+		t.Error("expected --top flag")
+	}
+
+	// Check filter flags
+	flag = cmd.Flags().Lookup("sort")
+	if flag == nil {
+		t.Error("expected --sort flag")
+	}
+	if flag.DefValue != "volume" {
+		t.Errorf("expected default sort 'volume', got %s", flag.DefValue)
+	}
+
+	flag = cmd.Flags().Lookup("min-volume")
+	if flag == nil {
+		t.Error("expected --min-volume flag")
+	}
+
+	flag = cmd.Flags().Lookup("min-volume-24hr")
+	if flag == nil {
+		t.Error("expected --min-volume-24hr flag")
+	}
+
+	flag = cmd.Flags().Lookup("min-liquidity")
+	if flag == nil {
+		t.Error("expected --min-liquidity flag")
+	}
+
+	// Check scanning options
+	flag = cmd.Flags().Lookup("limit")
+	if flag == nil {
+		t.Error("expected --limit flag")
+	}
+	if flag.DefValue != "20" {
+		t.Errorf("expected default limit '20', got %s", flag.DefValue)
+	}
+
+	flag = cmd.Flags().Lookup("concurrency")
+	if flag == nil {
+		t.Error("expected --concurrency flag")
+	}
+	if flag.DefValue != "3" {
+		t.Errorf("expected default concurrency '3', got %s", flag.DefValue)
+	}
+
+	flag = cmd.Flags().Lookup("no-scan")
+	if flag == nil {
+		t.Error("expected --no-scan flag")
+	}
+
+	flag = cmd.Flags().Lookup("threshold")
+	if flag == nil {
+		t.Error("expected --threshold flag")
+	}
+	if flag.DefValue != "80" {
+		t.Errorf("expected default threshold '80', got %s", flag.DefValue)
+	}
+
+	// Check output flags
+	flag = cmd.Flags().Lookup("json")
+	if flag == nil {
+		t.Error("expected --json flag")
+	}
+
+	flag = cmd.Flags().Lookup("output")
+	if flag == nil {
+		t.Error("expected --output flag")
+	}
+}
+
+func TestDiscoverCmd_RequiresInputSource(t *testing.T) {
+	cmd := rootCmd()
+
+	// Execute without any input source
+	cmd.SetArgs([]string{"discover"})
+	err := cmd.Execute()
+
+	if err == nil {
+		t.Error("expected error when no input source provided")
+	}
+
+	if !strings.Contains(err.Error(), "must specify") {
+		t.Errorf("expected error message about specifying input source, got: %v", err)
+	}
+}
+
+func TestDiscoverCmd_AutoRequiresTop(t *testing.T) {
+	cmd := rootCmd()
+
+	// Execute with --auto but no --top
+	cmd.SetArgs([]string{"discover", "--auto"})
+	err := cmd.Execute()
+
+	if err == nil {
+		t.Error("expected error when --auto is enabled without --top")
+	}
+
+	if !strings.Contains(err.Error(), "--top must be > 0") {
+		t.Errorf("expected error message about --top requirement, got: %v", err)
+	}
+}
+
+func TestRootCmd_HasDiscoverSubcommand(t *testing.T) {
+	cmd := rootCmd()
+
+	subcommands := make(map[string]bool)
+	for _, sub := range cmd.Commands() {
+		subcommands[sub.Name()] = true
+	}
+
+	if !subcommands["discover"] {
+		t.Error("expected 'discover' subcommand")
+	}
+}
+
+func TestOutputDiscoveryResult(t *testing.T) {
+	result := discovery.NewDiscoveryResult()
+	result.Stats.MarketsScanned = 2
+	result.Stats.WalletsFound = 5
+	result.Finalize()
+
+	t.Run("terminal output to stdout", func(t *testing.T) {
+		err := outputDiscoveryResult(result, false, "")
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("json output to stdout", func(t *testing.T) {
+		err := outputDiscoveryResult(result, true, "")
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("json output to file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpFile := filepath.Join(tmpDir, "discovery.json")
+
+		err := outputDiscoveryResult(result, true, tmpFile)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		// Verify file exists
+		if _, err := os.Stat(tmpFile); os.IsNotExist(err) {
+			t.Error("output file was not created")
+		}
+
+		// Verify JSON content
+		content, _ := os.ReadFile(tmpFile)
+		if !bytes.Contains(content, []byte("markets_scanned")) {
+			t.Error("output file does not contain expected JSON field")
+		}
+	})
+
+	t.Run("terminal output to file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpFile := filepath.Join(tmpDir, "discovery.txt")
+
+		err := outputDiscoveryResult(result, false, tmpFile)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		// Verify file exists
+		if _, err := os.Stat(tmpFile); os.IsNotExist(err) {
+			t.Error("output file was not created")
+		}
+
+		// Verify content
+		content, _ := os.ReadFile(tmpFile)
+		if !bytes.Contains(content, []byte("DISCOVERY")) {
+			t.Error("output file does not contain expected header")
+		}
+	})
+}
+
+func TestDiscoverCmd_FlagsShortcutsExist(t *testing.T) {
+	cmd := discoverCmd()
+
+	// Test shortcut flags
+	tests := []struct {
+		shortcut   string
+		longName   string
+		shouldHave bool
+	}{
+		{"m", "market", true},
+		{"s", "slug", true},
+		{"c", "concurrency", true},
+		{"t", "threshold", true},
+		{"o", "output", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.shortcut, func(t *testing.T) {
+			flag := cmd.Flags().ShorthandLookup(tt.shortcut)
+			if tt.shouldHave {
+				if flag == nil {
+					t.Errorf("expected shortcut -%s for --%s", tt.shortcut, tt.longName)
+				} else if flag.Name != tt.longName {
+					t.Errorf("shortcut -%s should map to --%s, got --%s", tt.shortcut, tt.longName, flag.Name)
+				}
 			}
 		})
 	}

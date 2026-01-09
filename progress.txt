@@ -1454,3 +1454,69 @@ Monitor command:
 - Color-coded bot severity when color is enabled
 - Next steps: Implement discover command (Step 39)
 
+## Iteration 30: Discover Command Implementation (Steps 39-42)
+
+### Tasks Completed:
+- Step 39: Implement discover command
+- Step 40: Register discover command
+- Step 41: Add CLI integration tests for discover
+- Step 42: Mark F004 as completed
+
+### Key Decisions:
+- discoverCmd() implements all required flags per PRD specification
+- Input source flags: --market/-m, --slug/-s, --auto, --top
+- Filter flags: --sort, --min-volume, --min-volume-24hr, --min-liquidity
+- Scanning options: --limit, --concurrency/-c, --no-scan, --threshold/-t
+- Output flags: --json, --output/-o
+- Validates that at least one input source is specified
+- Validates that --auto requires --top > 0
+- Uses discovery.Discoverer with default production dependencies
+- Supports graceful cancellation via SIGINT/SIGTERM
+- outputDiscoveryResult() handles terminal, JSON, and file output
+
+### Files Changed:
+- cmd/polymarket-watch/main.go (added discoverCmd, outputDiscoveryResult, registered discover command)
+- cmd/polymarket-watch/main_test.go (added 5 new test functions for discover command)
+- prd.json (updated steps 39-42 and F004 to completed)
+
+### Test Results:
+- All 32 test functions passed in cmd package
+- TestDiscoverCmd: validates all flags exist and defaults
+- TestDiscoverCmd_RequiresInputSource: validates input validation
+- TestDiscoverCmd_AutoRequiresTop: validates --auto requires --top
+- TestRootCmd_HasDiscoverSubcommand: verifies registration
+- TestOutputDiscoveryResult: 4 subtests (terminal/json to stdout/file)
+- TestDiscoverCmd_FlagsShortcutsExist: 5 subtests for shortcut flags
+- Overall coverage: 84.9%
+
+### Coverage by Package:
+- cmd/polymarket-watch: 52.1% (lower due to untestable main loop/API code)
+- discovery package: 98.6%
+- scanner package: 96.7%
+- output package: 92.0%
+- models package: 91.4%
+- api package: 87.3%
+
+### Build/Vet/Lint:
+- Build: PASSED
+- Vet: PASSED
+- gofmt: PASSED
+- Lint: Skipped (golangci-lint/staticcheck not available)
+- Race: Skipped (CGO_ENABLED=0)
+
+### API Design:
+- discoverCmd() returns *cobra.Command with all flags configured
+- outputDiscoveryResult(result, jsonOutput, outputFile) handles all output scenarios
+- Leverages existing discovery.Discoverer and output formatters
+
+### Notes:
+- ALL 42 IMPLEMENTATION STEPS ARE NOW COMPLETE
+- ALL 4 FEATURES ARE NOW COMPLETE:
+  - F001: Single Wallet Scan (completed)
+  - F002: Batch Scanning (completed)
+  - F003: Real-time Monitoring (completed)
+  - F004: Wallet Discovery (completed)
+- Project is feature-complete and ready for production use
+- Comprehensive test coverage across all packages
+- Follows Go best practices and project conventions
+
