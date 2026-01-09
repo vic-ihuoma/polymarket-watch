@@ -697,6 +697,16 @@ github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:351.24,352.32 
 github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:352.32,353.31 1 1
 github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:353.31,355.5 1 1
 github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:358.2,358.16 1 1
+github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:368.96,374.16 4 1
+github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:374.16,376.3 1 1
+github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:377.2,379.38 2 1
+github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:379.38,382.3 2 1
+github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:384.2,385.68 2 1
+github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:385.68,387.3 1 1
+github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:389.2,389.21 1 1
+github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:395.111,396.16 1 1
+github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:396.16,398.3 1 1
+github.com/victorihuoma/polymarket-watch/internal/api/data_api.go:400.2,405.32 2 1
 github.com/victorihuoma/polymarket-watch/internal/api/gamma_api.go:29.53,30.27 1 1
 github.com/victorihuoma/polymarket-watch/internal/api/gamma_api.go:30.27,32.3 1 1
 github.com/victorihuoma/polymarket-watch/internal/api/gamma_api.go:36.54,37.27 1 1
