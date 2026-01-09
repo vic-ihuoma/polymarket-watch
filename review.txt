@@ -684,3 +684,45 @@
 - HolderQueryOptions will be used by GetHolders and GetHoldersForMarket methods
 - Consider adding validation for Limit (max 20 per API docs) in future iteration
 
+## [Steps 25-26]: Implement GetHolders Method and Add Unit Tests
+**Status:** PASSED
+**Tests Written:** TestDataAPI_GetHolders (5 subtests), TestDataAPI_GetHoldersForMarket (3 subtests), TestDataAPIInterface_WithHolders
+**Test Results:** All 10 new subtests passed
+**Race Detection:** Not required (no concurrent code in implementation)
+**Coverage:** 83.3% of statements in api package, 82.4% overall
+**Vet/Lint:** PASSED
+**Build:** PASSED
+
+**Findings:**
+- GetHolders(ctx, opts) correctly fetches holders from /holders endpoint
+- GetHoldersForMarket(ctx, conditionID, limit) provides convenient single-market access
+- DefaultHoldersLimit constant (20) matches Polymarket API maximum
+- Both methods return HolderList type for seamless integration with helper methods
+- Error handling follows established patterns with proper context wrapping
+- Context cancellation propagates correctly through HTTP client
+
+**Code Quality Notes:**
+- All exported types and methods have godoc comments
+- Table-driven tests with subtests for comprehensive edge case coverage
+- Follows established patterns from GetTrades/GetPositions methods
+- Methods integrate cleanly with Holder types from Step 23
+- Uses HolderQueryOptions.toParams() from Step 24
+- Interface compliance test ensures type safety
+- Tests verify: valid responses, empty responses, server errors, invalid JSON, context cancellation
+
+**Test Coverage Details:**
+- TestDataAPI_GetHolders/fetches_holders_with_options: Validates all query params, response parsing
+- TestDataAPI_GetHolders/handles_empty_response: Validates empty array handling
+- TestDataAPI_GetHolders/handles_server_error: Validates error propagation
+- TestDataAPI_GetHolders/handles_invalid_JSON: Validates JSON decode error
+- TestDataAPI_GetHolders/handles_context_cancellation: Validates timeout behavior
+- TestDataAPI_GetHoldersForMarket/fetches_holders_for_single_market: Validates single market query
+- TestDataAPI_GetHoldersForMarket/uses_default_limit_when_zero: Validates DefaultHoldersLimit usage
+- TestDataAPI_GetHoldersForMarket/handles_server_error: Validates error handling
+
+**Recommendations:**
+- This completes the third step of F004 (Wallet Discovery) implementation
+- Next step: Add TopMarketsOptions to gamma_api.go (Step 27)
+- Consider adding GetHoldersForMarkets(ctx, conditionIDs, limit) for batch queries in future
+- May want to add TotalAmount() method to HolderList for aggregation
+

@@ -357,3 +357,50 @@ func (hl HolderList) FindHoldersByWallet(wallet string) []Holder {
 	}
 	return holders
 }
+
+const (
+	// DefaultHoldersLimit is the default number of holders per market (max supported by API).
+	DefaultHoldersLimit = 20
+)
+
+// GetHolders fetches holders for the specified markets with custom options.
+// The Polymarket API returns holders grouped by token (asset ID) for each market.
+func (d *DataAPI) GetHolders(ctx context.Context, opts HolderQueryOptions) (HolderList, error) {
+	url := d.baseURL + "/holders"
+
+	params := opts.toParams()
+
+	resp, err := d.client.GetWithParams(ctx, url, params)
+	if err != nil {
+		return nil, fmt.Errorf("fetching holders: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var holders HolderList
+	if err := json.NewDecoder(resp.Body).Decode(&holders); err != nil {
+		return nil, fmt.Errorf("decoding holders: %w", err)
+	}
+
+	return holders, nil
+}
+
+// GetHoldersForMarket fetches holders for a single market (condition ID).
+// This is a convenience method that wraps GetHolders with a single market.
+// If limit is 0, it defaults to DefaultHoldersLimit (20).
+func (d *DataAPI) GetHoldersForMarket(ctx context.Context, conditionID string, limit int) (HolderList, error) {
+	if limit <= 0 {
+		limit = DefaultHoldersLimit
+	}
+
+	opts := HolderQueryOptions{
+		Markets: []string{conditionID},
+		Limit:   limit,
+	}
+
+	return d.GetHolders(ctx, opts)
+}

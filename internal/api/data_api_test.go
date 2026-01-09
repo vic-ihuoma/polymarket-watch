@@ -978,3 +978,246 @@ func TestHolderQueryOptions(t *testing.T) {
 		}
 	})
 }
+
+func TestDataAPI_GetHolders(t *testing.T) {
+	t.Run("fetches holders with options", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Verify request parameters
+			if r.URL.Path != "/holders" {
+				t.Errorf("expected path /holders, got %s", r.URL.Path)
+			}
+			query := r.URL.Query()
+			if query.Get("market") != "0xmarket1,0xmarket2" {
+				t.Errorf("expected market '0xmarket1,0xmarket2', got %s", query.Get("market"))
+			}
+			if query.Get("limit") != "10" {
+				t.Errorf("expected limit '10', got %s", query.Get("limit"))
+			}
+
+			// Return mock holder data
+			holders := []map[string]interface{}{
+				{
+					"token": "token1",
+					"holders": []map[string]interface{}{
+						{"proxyWallet": "0x111", "amount": "1000.5", "name": "Trader1"},
+						{"proxyWallet": "0x222", "amount": "500.0"},
+					},
+				},
+				{
+					"token": "token2",
+					"holders": []map[string]interface{}{
+						{"proxyWallet": "0x111", "amount": "750.25"},
+						{"proxyWallet": "0x333", "amount": "250.0", "name": "Trader3"},
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(holders)
+		}))
+		defer server.Close()
+
+		api := NewDataAPI(WithBaseURL(server.URL))
+		opts := HolderQueryOptions{
+			Markets: []string{"0xmarket1", "0xmarket2"},
+			Limit:   10,
+		}
+		holders, err := api.GetHolders(context.Background(), opts)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(holders) != 2 {
+			t.Fatalf("expected 2 holder tokens, got %d", len(holders))
+		}
+		if holders[0].Token != "token1" {
+			t.Errorf("expected first token 'token1', got %s", holders[0].Token)
+		}
+		if len(holders[0].Holders) != 2 {
+			t.Errorf("expected 2 holders for first token, got %d", len(holders[0].Holders))
+		}
+		if holders[0].Holders[0].ProxyWallet != "0x111" {
+			t.Errorf("expected first holder wallet '0x111', got %s", holders[0].Holders[0].ProxyWallet)
+		}
+		if holders[0].Holders[0].Amount != 1000.5 {
+			t.Errorf("expected first holder amount 1000.5, got %f", holders[0].Holders[0].Amount)
+		}
+		if holders[0].Holders[0].Name != "Trader1" {
+			t.Errorf("expected first holder name 'Trader1', got %s", holders[0].Holders[0].Name)
+		}
+	})
+
+	t.Run("handles empty response", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer server.Close()
+
+		api := NewDataAPI(WithBaseURL(server.URL))
+		opts := HolderQueryOptions{Markets: []string{"0xmarket1"}}
+		holders, err := api.GetHolders(context.Background(), opts)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(holders) != 0 {
+			t.Errorf("expected 0 holder tokens, got %d", len(holders))
+		}
+	})
+
+	t.Run("handles server error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("internal server error"))
+		}))
+		defer server.Close()
+
+		api := NewDataAPI(
+			WithBaseURL(server.URL),
+			WithClient(NewClient(WithRetries(0))),
+		)
+		opts := HolderQueryOptions{Markets: []string{"0xmarket1"}}
+		_, err := api.GetHolders(context.Background(), opts)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
+
+	t.Run("handles invalid JSON", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("invalid json"))
+		}))
+		defer server.Close()
+
+		api := NewDataAPI(WithBaseURL(server.URL))
+		opts := HolderQueryOptions{Markets: []string{"0xmarket1"}}
+		_, err := api.GetHolders(context.Background(), opts)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
+
+	t.Run("handles context cancellation", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(5 * time.Second) // Delay response
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer server.Close()
+
+		api := NewDataAPI(WithBaseURL(server.URL))
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		opts := HolderQueryOptions{Markets: []string{"0xmarket1"}}
+		_, err := api.GetHolders(ctx, opts)
+		if err == nil {
+			t.Fatal("expected error due to context cancellation")
+		}
+	})
+}
+
+func TestDataAPI_GetHoldersForMarket(t *testing.T) {
+	t.Run("fetches holders for single market", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Verify request parameters
+			if r.URL.Path != "/holders" {
+				t.Errorf("expected path /holders, got %s", r.URL.Path)
+			}
+			query := r.URL.Query()
+			if query.Get("market") != "0xcondition123" {
+				t.Errorf("expected market '0xcondition123', got %s", query.Get("market"))
+			}
+			if query.Get("limit") != "15" {
+				t.Errorf("expected limit '15', got %s", query.Get("limit"))
+			}
+
+			// Return mock holder data
+			holders := []map[string]interface{}{
+				{
+					"token": "token_yes",
+					"holders": []map[string]interface{}{
+						{"proxyWallet": "0xAAA", "amount": "500.0"},
+						{"proxyWallet": "0xBBB", "amount": "300.0"},
+					},
+				},
+				{
+					"token": "token_no",
+					"holders": []map[string]interface{}{
+						{"proxyWallet": "0xCCC", "amount": "200.0"},
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(holders)
+		}))
+		defer server.Close()
+
+		api := NewDataAPI(WithBaseURL(server.URL))
+		holders, err := api.GetHoldersForMarket(context.Background(), "0xcondition123", 15)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(holders) != 2 {
+			t.Fatalf("expected 2 holder tokens, got %d", len(holders))
+		}
+		if holders[0].Token != "token_yes" {
+			t.Errorf("expected first token 'token_yes', got %s", holders[0].Token)
+		}
+		// Verify we can use HolderList methods
+		uniqueWallets := holders.GetUniqueWallets()
+		if len(uniqueWallets) != 3 {
+			t.Errorf("expected 3 unique wallets, got %d", len(uniqueWallets))
+		}
+	})
+
+	t.Run("uses default limit when zero", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			query := r.URL.Query()
+			// When limit is 0, it should use DefaultHoldersLimit (20)
+			if query.Get("limit") != "20" {
+				t.Errorf("expected limit '20' (default), got %s", query.Get("limit"))
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer server.Close()
+
+		api := NewDataAPI(WithBaseURL(server.URL))
+		_, err := api.GetHoldersForMarket(context.Background(), "0xcondition123", 0)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("handles server error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("market not found"))
+		}))
+		defer server.Close()
+
+		api := NewDataAPI(
+			WithBaseURL(server.URL),
+			WithClient(NewClient(WithRetries(0))),
+		)
+		_, err := api.GetHoldersForMarket(context.Background(), "0xunknown", 10)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
+}
+
+// TestDataAPIInterface_WithHolders ensures DataAPI implements expected interface contract including holder methods.
+func TestDataAPIInterface_WithHolders(t *testing.T) {
+	var _ interface {
+		GetTrades(context.Context, string) (models.TradeList, error)
+		GetTradesWithOptions(context.Context, string, TradeQueryOptions) (models.TradeList, error)
+		GetAllTrades(context.Context, string) (models.TradeList, error)
+		GetPositions(context.Context, string) (models.PositionList, error)
+		GetPositionsWithOptions(context.Context, string, PositionQueryOptions) (models.PositionList, error)
+		GetAllPositions(context.Context, string) (models.PositionList, error)
+		GetHolders(context.Context, HolderQueryOptions) (HolderList, error)
+		GetHoldersForMarket(context.Context, string, int) (HolderList, error)
+	} = &DataAPI{}
+}

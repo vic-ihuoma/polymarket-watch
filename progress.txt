@@ -1065,3 +1065,45 @@ Monitor command:
 - Added strings import to data_api.go for Join function
 - Next steps: Implement GetHolders method (Step 25)
 
+## Iteration 22: GetHolders Method Implementation (Steps 25-26)
+
+### Tasks Completed:
+- Step 25: Implement GetHolders method
+- Step 26: Add unit tests for GetHolders
+
+### Key Decisions:
+- GetHolders(ctx, opts) fetches holders for specified markets using HolderQueryOptions
+- GetHoldersForMarket(ctx, conditionID, limit) is a convenience method for single market queries
+- DefaultHoldersLimit constant set to 20 (max supported by Polymarket API)
+- If limit is 0 or negative in GetHoldersForMarket, defaults to 20
+- Follows established patterns from GetTrades/GetPositions methods
+- Returns HolderList type to enable use of helper methods (GetUniqueWallets, etc.)
+
+### Files Changed:
+- internal/api/data_api.go (added GetHolders and GetHoldersForMarket methods)
+- internal/api/data_api_test.go (added comprehensive tests for both methods)
+
+### Test Results:
+- All 10 new subtests passed for GetHolders methods
+- TestDataAPI_GetHolders: 5 subtests (valid response, empty, server error, invalid JSON, context cancellation)
+- TestDataAPI_GetHoldersForMarket: 3 subtests (valid response, default limit, server error)
+- TestDataAPIInterface_WithHolders: Interface compliance verification
+- API package coverage: 83.3% of statements (up from 82.4%)
+- Overall coverage: 82.4%
+- Build: PASSED
+- Vet: PASSED
+- gofmt: PASSED
+
+### API Design:
+- GetHolders(ctx context.Context, opts HolderQueryOptions) (HolderList, error)
+- GetHoldersForMarket(ctx context.Context, conditionID string, limit int) (HolderList, error)
+- Both methods return HolderList for easy access to helper methods
+- Error wrapping with context (e.g., "fetching holders: %w")
+- Non-200 responses include body content in error message
+
+### Notes:
+- Third step of F004 (Wallet Discovery) implementation
+- Combined Steps 25 and 26 following TDD approach (tests written before implementation)
+- Methods integrate with existing Holder/HolderToken/HolderList types from Step 23
+- Next steps: Add TopMarketsOptions to gamma_api.go (Step 27)
+

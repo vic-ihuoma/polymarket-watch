@@ -236,7 +236,7 @@
       "task": "Implement GetHolders method",
       "files": ["internal/api/data_api.go"],
       "description": "Add GetHolders(ctx, opts) and GetHoldersForMarket(ctx, conditionID, limit) methods",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 26,
@@ -244,7 +244,7 @@
       "task": "Add unit tests for GetHolders",
       "files": ["internal/api/data_api_test.go"],
       "description": "Test GetHolders with mock server: valid response, empty response, error handling",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 27,
