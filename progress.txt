@@ -1302,3 +1302,52 @@ Monitor command:
 - Types are ready for Discoverer struct implementation (Step 32)
 - Next steps: Implement Discoverer struct (Step 32)
 
+## Iteration 27: Discoverer Struct Implementation (Step 32)
+
+### Tasks Completed:
+- Step 32: Implement Discoverer struct
+
+### Key Decisions:
+- Discoverer struct with DataAPIProvider, GammaAPIProvider, ScannerProvider interfaces
+- Interface-based dependency injection for testability
+- Functional options pattern (WithDiscovererDataAPI, WithDiscovererGammaAPI, WithDiscovererScanner)
+- resolvedMarket internal struct for unified market representation
+- Concurrent wallet scanning with configurable concurrency via semaphore pattern
+- Market deduplication by conditionID across all input sources
+
+### Files Changed:
+- internal/discovery/discovery.go (added Discoverer, interfaces, and implementation)
+- internal/discovery/discovery_test.go (added 11 new test functions)
+
+### Test Results:
+- All 11 new test functions passed for Discoverer
+- TestNewDiscoverer: 4 subtests (default deps, custom data API, custom gamma API, custom scanner)
+- TestDiscoverer_resolveMarkets: 4 subtests (market IDs, slugs, auto-discover, deduplication)
+- TestDiscoverer_aggregateHolders: 2 subtests (aggregation, empty)
+- TestDiscoverer_Discover: 4 subtests (full discovery, no-scan mode, invalid options, market info)
+- TestDiscovererInterface: Compile-time interface verification
+- Discovery package coverage: 88.2% of statements
+- Overall coverage: 84.1%
+
+### Build/Vet/Lint:
+- Build: PASSED
+- Vet: PASSED
+- gofmt: PASSED
+- Race: Skipped (CGO_ENABLED=0)
+
+### API Design:
+- DataAPIProvider interface: GetHoldersForMarket()
+- GammaAPIProvider interface: GetMarket(), GetMarketBySlug(), GetTopMarkets()
+- ScannerProvider interface: Scan()
+- Discoverer struct: NewDiscoverer(), Discover(), resolveMarkets(), aggregateHolders(), scanWallets()
+- Discover() orchestrates: validate options -> resolve markets -> aggregate holders -> scan wallets -> finalize
+
+### Notes:
+- Eighth step of F004 (Wallet Discovery) implementation
+- Implements Step 32 (Discoverer struct), Step 33 (market resolution), Step 34 (holder aggregation), and Step 35 (wallet scanning) all together since they're tightly coupled
+- Following TDD approach: tests written before implementation
+- Uses interfaces for all dependencies to enable mock injection
+- Concurrent scanning uses sync.WaitGroup + semaphore + mutex pattern
+- Context cancellation properly handled during concurrent scanning
+- Next steps: Add unit tests for discovery package (Step 37) - partially done, may need more edge cases
+

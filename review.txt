@@ -889,3 +889,48 @@
 - Consider adding AddMarket() method for MarketInfo tracking
 - Next step: Implement Discoverer struct (Step 32)
 
+## [Step 32]: Implement Discoverer Struct
+**Status:** PASSED
+**Tests Written:** TestNewDiscoverer (4 subtests), TestDiscoverer_resolveMarkets (4 subtests), TestDiscoverer_aggregateHolders (2 subtests), TestDiscoverer_Discover (4 subtests), TestDiscovererInterface
+**Test Results:** All 11 new test functions passed (0.003s)
+**Race Detection:** Skipped (CGO_ENABLED=0)
+**Coverage:** 88.2% of statements in discovery package, 84.1% overall
+**Vet/Lint:** PASSED
+**Build:** PASSED
+
+**Findings:**
+- Discoverer struct successfully orchestrates wallet discovery with three interface dependencies
+- DataAPIProvider, GammaAPIProvider, ScannerProvider interfaces enable clean dependency injection
+- Functional options pattern (WithDiscovererDataAPI, WithDiscovererGammaAPI, WithDiscovererScanner) allows flexible configuration
+- resolvedMarket internal struct provides unified representation for markets from different sources
+- Discover() method orchestrates the complete flow: validate -> resolve markets -> aggregate holders -> scan wallets -> finalize
+- resolveMarkets() handles explicit market IDs, slugs, and auto-discovery with deduplication
+- aggregateHolders() fetches holders per market and aggregates amounts/counts by wallet address
+- scanWallets() uses goroutines with semaphore pattern for concurrent wallet scanning
+- Context cancellation properly propagates through all operations
+- Thread-safe result accumulation using sync.Mutex
+
+**Code Quality Notes:**
+- All exported types and methods have godoc comments
+- Interfaces follow Go idiom: defined where consumed (in discovery package)
+- Table-driven tests with subtests for comprehensive coverage
+- Mock implementations in test file implement discovery package interfaces
+- Uses api.Market, api.HolderList, api.TopMarketsOptions from api package
+- Concurrent scanning limits parallelism via semaphore channel pattern
+- Proper error wrapping with context (e.g., "resolving markets: %w")
+- Stats tracking (WalletsScanned, BotsDetected, ScanErrors) with mutex protection
+
+**Test Coverage Details:**
+- TestNewDiscoverer: creates_with_default_dependencies, accepts_custom_data_api, accepts_custom_gamma_api, accepts_custom_scanner
+- TestDiscoverer_resolveMarkets: resolves_explicit_market_ids, resolves_market_slugs, auto_discovers_top_markets, deduplicates_markets
+- TestDiscoverer_aggregateHolders: aggregates_holders_across_markets, handles_empty_holders
+- TestDiscoverer_Discover: discovers_and_scans_wallets, skips_scanning_when_no_scan_is_true, returns_error_for_invalid_options, records_market_info
+- TestDiscovererInterface: Compile-time interface verification
+
+**Recommendations:**
+- This completes the eighth step of F004 (Wallet Discovery) implementation
+- Implementation effectively covers Steps 32-35 since they're tightly coupled
+- Consider adding error handling for individual market fetch failures (continue vs fail)
+- May want to add progress callback for long-running discoveries
+- Next step: Add unit tests for discovery package (Step 37) - edge cases
+

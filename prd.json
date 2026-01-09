@@ -292,7 +292,7 @@
       "task": "Implement Discoverer struct",
       "files": ["internal/discovery/discovery.go"],
       "description": "Create Discoverer with DataAPI, GammaAPI, Scanner dependencies and option pattern",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 33,
@@ -300,7 +300,7 @@
       "task": "Implement market resolution logic",
       "files": ["internal/discovery/discovery.go"],
       "description": "Resolve markets from: explicit IDs, slugs (via lookup), or auto-discovery",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 34,
@@ -308,7 +308,7 @@
       "task": "Implement holder aggregation logic",
       "files": ["internal/discovery/discovery.go"],
       "description": "Fetch holders per market, deduplicate wallets, aggregate amounts across markets",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 35,
@@ -316,7 +316,7 @@
       "task": "Implement wallet scanning integration",
       "files": ["internal/discovery/discovery.go"],
       "description": "Scan discovered wallets concurrently using existing scanner, collect reports",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 36,
@@ -324,7 +324,7 @@
       "task": "Implement Discover() orchestration method",
       "files": ["internal/discovery/discovery.go"],
       "description": "Main Discover(ctx, opts) method: resolve markets -> fetch holders -> scan wallets -> return result",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 37,

@@ -1,9 +1,11 @@
 package discovery
 
 import (
+	"context"
 	"testing"
 	"time"
 
+	"github.com/victorihuoma/polymarket-watch/internal/api"
 	"github.com/victorihuoma/polymarket-watch/internal/models"
 )
 
@@ -465,4 +467,454 @@ func TestDiscoveryOptionsJSON(t *testing.T) {
 	if opts.TopN != 10 {
 		t.Errorf("TopN = %d, want 10", opts.TopN)
 	}
+}
+
+// TestNewDiscoverer tests the Discoverer constructor and functional options.
+func TestNewDiscoverer(t *testing.T) {
+	t.Run("creates_with_default_dependencies", func(t *testing.T) {
+		d := NewDiscoverer()
+
+		if d == nil {
+			t.Fatal("NewDiscoverer() returned nil")
+		}
+		if d.dataAPI == nil {
+			t.Error("dataAPI is nil, expected non-nil")
+		}
+		if d.gammaAPI == nil {
+			t.Error("gammaAPI is nil, expected non-nil")
+		}
+		if d.scanner == nil {
+			t.Error("scanner is nil, expected non-nil")
+		}
+	})
+
+	t.Run("accepts_custom_data_api", func(t *testing.T) {
+		mockDataAPI := &mockDataAPIImpl{}
+		d := NewDiscoverer(WithDiscovererDataAPI(mockDataAPI))
+
+		if d.dataAPI != mockDataAPI {
+			t.Error("dataAPI was not set to custom value")
+		}
+	})
+
+	t.Run("accepts_custom_gamma_api", func(t *testing.T) {
+		mockGammaAPI := &mockGammaAPIImpl{}
+		d := NewDiscoverer(WithDiscovererGammaAPI(mockGammaAPI))
+
+		if d.gammaAPI != mockGammaAPI {
+			t.Error("gammaAPI was not set to custom value")
+		}
+	})
+
+	t.Run("accepts_custom_scanner", func(t *testing.T) {
+		mockScanner := &mockScannerImpl{}
+		d := NewDiscoverer(WithDiscovererScanner(mockScanner))
+
+		if d.scanner != mockScanner {
+			t.Error("scanner was not set to custom value")
+		}
+	})
+}
+
+// TestDiscoverer_resolveMarkets tests the market resolution logic.
+func TestDiscoverer_resolveMarkets(t *testing.T) {
+	t.Run("resolves_explicit_market_ids", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImpl{
+			markets: map[string]*api.Market{
+				"0xmarket1": {ConditionID: "0xmarket1", Slug: "market-1", Question: "Question 1", Volume: 1000},
+				"0xmarket2": {ConditionID: "0xmarket2", Slug: "market-2", Question: "Question 2", Volume: 2000},
+			},
+		}
+		d := NewDiscoverer(WithDiscovererGammaAPI(mockGamma))
+
+		opts := DiscoveryOptions{
+			MarketIDs: []string{"0xmarket1", "0xmarket2"},
+		}
+		opts.ApplyDefaults()
+
+		ctx := context.Background()
+		markets, err := d.resolveMarkets(ctx, opts)
+		if err != nil {
+			t.Fatalf("resolveMarkets() error = %v", err)
+		}
+
+		if len(markets) != 2 {
+			t.Errorf("len(markets) = %d, want 2", len(markets))
+		}
+	})
+
+	t.Run("resolves_market_slugs", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImpl{
+			marketsBySlugs: map[string]*api.Market{
+				"will-trump-win": {ConditionID: "0xtrump", Slug: "will-trump-win", Question: "Will Trump win?", Volume: 5000},
+			},
+		}
+		d := NewDiscoverer(WithDiscovererGammaAPI(mockGamma))
+
+		opts := DiscoveryOptions{
+			MarketSlugs: []string{"will-trump-win"},
+		}
+		opts.ApplyDefaults()
+
+		ctx := context.Background()
+		markets, err := d.resolveMarkets(ctx, opts)
+		if err != nil {
+			t.Fatalf("resolveMarkets() error = %v", err)
+		}
+
+		if len(markets) != 1 {
+			t.Errorf("len(markets) = %d, want 1", len(markets))
+		}
+	})
+
+	t.Run("auto_discovers_top_markets", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImpl{
+			topMarkets: api.MarketList{
+				{ConditionID: "0xtop1", Slug: "top-1", Question: "Top 1?", Volume: 10000},
+				{ConditionID: "0xtop2", Slug: "top-2", Question: "Top 2?", Volume: 9000},
+				{ConditionID: "0xtop3", Slug: "top-3", Question: "Top 3?", Volume: 8000},
+			},
+		}
+		d := NewDiscoverer(WithDiscovererGammaAPI(mockGamma))
+
+		opts := DiscoveryOptions{
+			AutoDiscover: true,
+			TopN:         3,
+		}
+		opts.ApplyDefaults()
+
+		ctx := context.Background()
+		markets, err := d.resolveMarkets(ctx, opts)
+		if err != nil {
+			t.Fatalf("resolveMarkets() error = %v", err)
+		}
+
+		if len(markets) != 3 {
+			t.Errorf("len(markets) = %d, want 3", len(markets))
+		}
+	})
+
+	t.Run("deduplicates_markets", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImpl{
+			markets: map[string]*api.Market{
+				"0xmarket1": {ConditionID: "0xmarket1", Slug: "market-1", Question: "Question 1", Volume: 1000},
+			},
+			marketsBySlugs: map[string]*api.Market{
+				"market-1": {ConditionID: "0xmarket1", Slug: "market-1", Question: "Question 1", Volume: 1000},
+			},
+		}
+		d := NewDiscoverer(WithDiscovererGammaAPI(mockGamma))
+
+		opts := DiscoveryOptions{
+			MarketIDs:   []string{"0xmarket1"},
+			MarketSlugs: []string{"market-1"}, // Same market via slug
+		}
+		opts.ApplyDefaults()
+
+		ctx := context.Background()
+		markets, err := d.resolveMarkets(ctx, opts)
+		if err != nil {
+			t.Fatalf("resolveMarkets() error = %v", err)
+		}
+
+		if len(markets) != 1 {
+			t.Errorf("len(markets) = %d, want 1 (expected deduplication)", len(markets))
+		}
+	})
+}
+
+// TestDiscoverer_aggregateHolders tests the holder aggregation logic.
+func TestDiscoverer_aggregateHolders(t *testing.T) {
+	t.Run("aggregates_holders_across_markets", func(t *testing.T) {
+		mockData := &mockDataAPIImpl{
+			holders: map[string]api.HolderList{
+				"0xmarket1": {
+					{Token: "token1", Holders: []api.Holder{
+						{ProxyWallet: "0xwallet1", Amount: 100},
+						{ProxyWallet: "0xwallet2", Amount: 200},
+					}},
+				},
+				"0xmarket2": {
+					{Token: "token2", Holders: []api.Holder{
+						{ProxyWallet: "0xwallet1", Amount: 150}, // Same wallet, different market
+						{ProxyWallet: "0xwallet3", Amount: 300},
+					}},
+				},
+			},
+		}
+		d := NewDiscoverer(WithDiscovererDataAPI(mockData))
+
+		markets := []resolvedMarket{
+			{conditionID: "0xmarket1", slug: "market-1", question: "Question 1"},
+			{conditionID: "0xmarket2", slug: "market-2", question: "Question 2"},
+		}
+
+		opts := DiscoveryOptions{HoldersLimit: 20}
+
+		ctx := context.Background()
+		aggregated, err := d.aggregateHolders(ctx, markets, opts)
+		if err != nil {
+			t.Fatalf("aggregateHolders() error = %v", err)
+		}
+
+		// Should have 3 unique wallets
+		if len(aggregated) != 3 {
+			t.Errorf("len(aggregated) = %d, want 3", len(aggregated))
+		}
+
+		// Wallet1 should have aggregated amount from both markets
+		wallet1 := aggregated["0xwallet1"]
+		if wallet1.TotalAmount != 250 { // 100 + 150
+			t.Errorf("wallet1.TotalAmount = %f, want 250", wallet1.TotalAmount)
+		}
+		if wallet1.MarketCount != 2 {
+			t.Errorf("wallet1.MarketCount = %d, want 2", wallet1.MarketCount)
+		}
+	})
+
+	t.Run("handles_empty_holders", func(t *testing.T) {
+		mockData := &mockDataAPIImpl{
+			holders: map[string]api.HolderList{},
+		}
+		d := NewDiscoverer(WithDiscovererDataAPI(mockData))
+
+		markets := []resolvedMarket{
+			{conditionID: "0xmarket1", slug: "market-1", question: "Question 1"},
+		}
+
+		opts := DiscoveryOptions{HoldersLimit: 20}
+
+		ctx := context.Background()
+		aggregated, err := d.aggregateHolders(ctx, markets, opts)
+		if err != nil {
+			t.Fatalf("aggregateHolders() error = %v", err)
+		}
+
+		if len(aggregated) != 0 {
+			t.Errorf("len(aggregated) = %d, want 0", len(aggregated))
+		}
+	})
+}
+
+// TestDiscoverer_Discover tests the main orchestration method.
+func TestDiscoverer_Discover(t *testing.T) {
+	t.Run("discovers_and_scans_wallets", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImpl{
+			markets: map[string]*api.Market{
+				"0xmarket1": {ConditionID: "0xmarket1", Slug: "market-1", Question: "Question 1", Volume: 1000, Liquidity: 500},
+			},
+		}
+		mockData := &mockDataAPIImpl{
+			holders: map[string]api.HolderList{
+				"0xmarket1": {
+					{Token: "token1", Holders: []api.Holder{
+						{ProxyWallet: "0xwallet1", Amount: 100},
+						{ProxyWallet: "0xwallet2", Amount: 200},
+					}},
+				},
+			},
+		}
+		mockScn := &mockScannerImpl{
+			reports: map[string]*models.ScanReport{
+				"0xwallet1": {WalletAddress: "0xwallet1", BotScore: 85},
+				"0xwallet2": {WalletAddress: "0xwallet2", BotScore: 30},
+			},
+		}
+
+		d := NewDiscoverer(
+			WithDiscovererDataAPI(mockData),
+			WithDiscovererGammaAPI(mockGamma),
+			WithDiscovererScanner(mockScn),
+		)
+
+		opts := DiscoveryOptions{
+			MarketIDs:    []string{"0xmarket1"},
+			BotThreshold: 80,
+		}
+
+		ctx := context.Background()
+		result, err := d.Discover(ctx, opts)
+		if err != nil {
+			t.Fatalf("Discover() error = %v", err)
+		}
+
+		if result == nil {
+			t.Fatal("Discover() returned nil result")
+		}
+		if len(result.Wallets) != 2 {
+			t.Errorf("len(Wallets) = %d, want 2", len(result.Wallets))
+		}
+		if result.Stats.WalletsScanned != 2 {
+			t.Errorf("Stats.WalletsScanned = %d, want 2", result.Stats.WalletsScanned)
+		}
+		if result.Stats.BotsDetected != 1 {
+			t.Errorf("Stats.BotsDetected = %d, want 1 (wallet1 with score 85)", result.Stats.BotsDetected)
+		}
+	})
+
+	t.Run("skips_scanning_when_no_scan_is_true", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImpl{
+			markets: map[string]*api.Market{
+				"0xmarket1": {ConditionID: "0xmarket1", Slug: "market-1", Question: "Question 1", Volume: 1000, Liquidity: 500},
+			},
+		}
+		mockData := &mockDataAPIImpl{
+			holders: map[string]api.HolderList{
+				"0xmarket1": {
+					{Token: "token1", Holders: []api.Holder{
+						{ProxyWallet: "0xwallet1", Amount: 100},
+					}},
+				},
+			},
+		}
+		mockScn := &mockScannerImpl{
+			scanCalled: false,
+		}
+
+		d := NewDiscoverer(
+			WithDiscovererDataAPI(mockData),
+			WithDiscovererGammaAPI(mockGamma),
+			WithDiscovererScanner(mockScn),
+		)
+
+		opts := DiscoveryOptions{
+			MarketIDs: []string{"0xmarket1"},
+			NoScan:    true,
+		}
+
+		ctx := context.Background()
+		result, err := d.Discover(ctx, opts)
+		if err != nil {
+			t.Fatalf("Discover() error = %v", err)
+		}
+
+		if mockScn.scanCalled {
+			t.Error("Scanner.Scan was called when NoScan=true")
+		}
+		if result.Wallets[0].ScanReport != nil {
+			t.Error("ScanReport should be nil when NoScan=true")
+		}
+		if result.Stats.WalletsScanned != 0 {
+			t.Errorf("Stats.WalletsScanned = %d, want 0", result.Stats.WalletsScanned)
+		}
+	})
+
+	t.Run("returns_error_for_invalid_options", func(t *testing.T) {
+		d := NewDiscoverer()
+
+		opts := DiscoveryOptions{} // No input specified
+
+		ctx := context.Background()
+		_, err := d.Discover(ctx, opts)
+		if err == nil {
+			t.Error("Discover() expected error for invalid options, got nil")
+		}
+	})
+
+	t.Run("records_market_info", func(t *testing.T) {
+		mockGamma := &mockGammaAPIImpl{
+			markets: map[string]*api.Market{
+				"0xmarket1": {ConditionID: "0xmarket1", Slug: "market-1", Question: "Question 1", Volume: 1000, Liquidity: 500},
+			},
+		}
+		mockData := &mockDataAPIImpl{
+			holders: map[string]api.HolderList{
+				"0xmarket1": {
+					{Token: "token1", Holders: []api.Holder{
+						{ProxyWallet: "0xwallet1", Amount: 100},
+					}},
+				},
+			},
+		}
+		mockScn := &mockScannerImpl{
+			reports: map[string]*models.ScanReport{
+				"0xwallet1": {WalletAddress: "0xwallet1", BotScore: 50},
+			},
+		}
+
+		d := NewDiscoverer(
+			WithDiscovererDataAPI(mockData),
+			WithDiscovererGammaAPI(mockGamma),
+			WithDiscovererScanner(mockScn),
+		)
+
+		opts := DiscoveryOptions{
+			MarketIDs: []string{"0xmarket1"},
+		}
+
+		ctx := context.Background()
+		result, err := d.Discover(ctx, opts)
+		if err != nil {
+			t.Fatalf("Discover() error = %v", err)
+		}
+
+		if len(result.Markets) != 1 {
+			t.Errorf("len(Markets) = %d, want 1", len(result.Markets))
+		}
+		if result.Markets[0].ConditionID != "0xmarket1" {
+			t.Errorf("Markets[0].ConditionID = %s, want 0xmarket1", result.Markets[0].ConditionID)
+		}
+		if result.Stats.MarketsScanned != 1 {
+			t.Errorf("Stats.MarketsScanned = %d, want 1", result.Stats.MarketsScanned)
+		}
+	})
+}
+
+// TestDiscovererInterface verifies the Discoverer implements expected patterns.
+func TestDiscovererInterface(t *testing.T) {
+	// Compile-time check that Discoverer can be created
+	var _ = NewDiscoverer()
+}
+
+// Mock implementations for testing
+
+// mockDataAPIImpl implements the DataAPIProvider interface for testing.
+type mockDataAPIImpl struct {
+	holders map[string]api.HolderList
+}
+
+func (m *mockDataAPIImpl) GetHoldersForMarket(_ context.Context, conditionID string, _ int) (api.HolderList, error) {
+	if holders, ok := m.holders[conditionID]; ok {
+		return holders, nil
+	}
+	return api.HolderList{}, nil
+}
+
+// mockGammaAPIImpl implements the GammaAPIProvider interface for testing.
+type mockGammaAPIImpl struct {
+	markets        map[string]*api.Market
+	marketsBySlugs map[string]*api.Market
+	topMarkets     api.MarketList
+}
+
+func (m *mockGammaAPIImpl) GetMarket(_ context.Context, conditionID string) (*api.Market, error) {
+	if market, ok := m.markets[conditionID]; ok {
+		return market, nil
+	}
+	return nil, nil
+}
+
+func (m *mockGammaAPIImpl) GetMarketBySlug(_ context.Context, slug string) (*api.Market, error) {
+	if market, ok := m.marketsBySlugs[slug]; ok {
+		return market, nil
+	}
+	return nil, nil
+}
+
+func (m *mockGammaAPIImpl) GetTopMarkets(_ context.Context, _ api.TopMarketsOptions) (api.MarketList, error) {
+	return m.topMarkets, nil
+}
+
+// mockScannerImpl implements the ScannerProvider interface for testing.
+type mockScannerImpl struct {
+	reports    map[string]*models.ScanReport
+	scanCalled bool
+}
+
+func (m *mockScannerImpl) Scan(_ context.Context, wallet string) (*models.ScanReport, error) {
+	m.scanCalled = true
+	if report, ok := m.reports[wallet]; ok {
+		return report, nil
+	}
+	return &models.ScanReport{WalletAddress: wallet, BotScore: 0}, nil
 }
