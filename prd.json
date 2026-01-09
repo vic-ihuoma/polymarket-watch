@@ -1,0 +1,277 @@
+{
+  "name": "polymarket-watch",
+  "version": "0.1.0",
+  "description": "CLI tool to scan Polymarket for automated/bot wallets by analyzing trading patterns",
+  "repository": "github.com/victorihuoma/polymarket-watch",
+  "license": "MIT",
+  "goals": [
+    "Detect automated trading bots on Polymarket",
+    "Analyze arbitrage strategies like Account88888's UP/DOWN spread farming",
+    "Provide actionable intelligence on wallet behavior patterns"
+  ],
+  "features": [
+    {
+      "id": "F001",
+      "name": "Single Wallet Scan",
+      "description": "Scan a single wallet address and generate a bot probability report",
+      "priority": "P0",
+      "status": "planned"
+    },
+    {
+      "id": "F002",
+      "name": "Batch Scanning",
+      "description": "Scan multiple wallets from a file with concurrent processing",
+      "priority": "P1",
+      "status": "planned"
+    },
+    {
+      "id": "F003",
+      "name": "Real-time Monitoring",
+      "description": "Continuously monitor for new trades and flag suspicious activity",
+      "priority": "P2",
+      "status": "planned"
+    },
+    {
+      "id": "F004",
+      "name": "Wallet Discovery",
+      "description": "Discover suspicious wallets by scanning top traders on a market",
+      "priority": "P2",
+      "status": "planned"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": 1,
+      "phase": "Setup",
+      "task": "Initialize Go module and project structure",
+      "files": ["go.mod", "cmd/polymarket-watch/main.go"],
+      "status": "completed"
+    },
+    {
+      "step": 2,
+      "phase": "Setup",
+      "task": "Add dependencies: cobra, tablewriter, color",
+      "files": ["go.mod", "go.sum"],
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "phase": "API",
+      "task": "Implement HTTP client with rate limiting",
+      "files": ["internal/api/client.go"],
+      "description": "Create reusable HTTP client with 100 req/min rate limit, timeout handling, and retry logic",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "phase": "API",
+      "task": "Implement Trade model",
+      "files": ["internal/models/trade.go"],
+      "description": "Define Trade struct matching Polymarket API response",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "phase": "API",
+      "task": "Implement Position model",
+      "files": ["internal/models/position.go"],
+      "description": "Define Position struct matching Polymarket API response",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "phase": "API",
+      "task": "Implement Report model",
+      "files": ["internal/models/report.go"],
+      "description": "Define ScanReport struct for scanner output",
+      "status": "pending"
+    },
+    {
+      "step": 7,
+      "phase": "API",
+      "task": "Implement Data API client",
+      "files": ["internal/api/data_api.go"],
+      "description": "GetTrades(wallet) and GetPositions(wallet) methods",
+      "status": "pending"
+    },
+    {
+      "step": 8,
+      "phase": "API",
+      "task": "Implement Gamma API client",
+      "files": ["internal/api/gamma_api.go"],
+      "description": "GetMarket(conditionId) method for market metadata",
+      "status": "pending"
+    },
+    {
+      "step": 9,
+      "phase": "Detection",
+      "task": "Implement arbitrage detector",
+      "files": ["internal/scanner/arbitrage.go"],
+      "description": "Detect simultaneous UP/DOWN positions on same market, calculate spread profit",
+      "status": "pending"
+    },
+    {
+      "step": 10,
+      "phase": "Detection",
+      "task": "Implement timing analyzer",
+      "files": ["internal/scanner/frequency.go"],
+      "description": "Calculate trade interval statistics, flag consistent sub-5s intervals",
+      "status": "pending"
+    },
+    {
+      "step": 11,
+      "phase": "Detection",
+      "task": "Implement win rate analyzer",
+      "files": ["internal/scanner/winrate.go"],
+      "description": "Calculate win rate, flag >95% with >100 trades",
+      "status": "pending"
+    },
+    {
+      "step": 12,
+      "phase": "Detection",
+      "task": "Implement sizing analyzer",
+      "files": ["internal/scanner/sizing.go"],
+      "description": "Detect algorithmic position sizing patterns",
+      "status": "pending"
+    },
+    {
+      "step": 13,
+      "phase": "Scanner",
+      "task": "Implement scanner orchestration",
+      "files": ["internal/scanner/scanner.go"],
+      "description": "Scanner struct that runs all detectors and computes composite score",
+      "status": "pending"
+    },
+    {
+      "step": 14,
+      "phase": "Output",
+      "task": "Implement terminal output",
+      "files": ["internal/output/terminal.go"],
+      "description": "Rich table output with colors for scan results",
+      "status": "pending"
+    },
+    {
+      "step": 15,
+      "phase": "Output",
+      "task": "Implement JSON export",
+      "files": ["internal/output/json.go"],
+      "description": "Export scan results to JSON file",
+      "status": "pending"
+    },
+    {
+      "step": 16,
+      "phase": "CLI",
+      "task": "Implement root command",
+      "files": ["cmd/polymarket-watch/main.go"],
+      "description": "Set up cobra root command with version info",
+      "status": "pending"
+    },
+    {
+      "step": 17,
+      "phase": "CLI",
+      "task": "Implement scan command",
+      "files": ["cmd/polymarket-watch/main.go"],
+      "description": "polymarket-watch scan --wallet <address>",
+      "status": "pending"
+    },
+    {
+      "step": 18,
+      "phase": "CLI",
+      "task": "Implement batch command",
+      "files": ["cmd/polymarket-watch/main.go"],
+      "description": "polymarket-watch batch --file wallets.txt",
+      "status": "pending"
+    },
+    {
+      "step": 19,
+      "phase": "CLI",
+      "task": "Implement monitor command",
+      "files": ["cmd/polymarket-watch/main.go"],
+      "description": "polymarket-watch monitor --interval 30s",
+      "status": "pending"
+    },
+    {
+      "step": 20,
+      "phase": "CI",
+      "task": "Add GitHub Actions workflow",
+      "files": [".github/workflows/ci.yml"],
+      "description": "Build, test, and lint on PRs",
+      "status": "pending"
+    },
+    {
+      "step": 21,
+      "phase": "Testing",
+      "task": "Add unit tests for detection algorithms",
+      "files": ["internal/scanner/*_test.go"],
+      "description": "Test arbitrage, timing, winrate, sizing detectors",
+      "status": "pending"
+    },
+    {
+      "step": 22,
+      "phase": "Testing",
+      "task": "Integration test with Account88888",
+      "files": [],
+      "description": "Verify scanner flags Account88888 as high bot probability",
+      "status": "pending"
+    }
+  ],
+  "api_endpoints": {
+    "data_api": {
+      "base_url": "https://data-api.polymarket.com",
+      "endpoints": {
+        "trades": {
+          "path": "/trades",
+          "method": "GET",
+          "params": ["user", "limit", "offset", "market", "side"]
+        },
+        "positions": {
+          "path": "/positions",
+          "method": "GET",
+          "params": ["user", "limit", "offset", "sizeThreshold"]
+        }
+      }
+    },
+    "gamma_api": {
+      "base_url": "https://gamma-api.polymarket.com",
+      "endpoints": {
+        "markets": {
+          "path": "/markets",
+          "method": "GET"
+        },
+        "market_by_id": {
+          "path": "/markets/{id}",
+          "method": "GET"
+        }
+      }
+    }
+  },
+  "detection_algorithms": {
+    "arbitrage": {
+      "weight": 0.35,
+      "description": "Detects simultaneous opposing positions",
+      "threshold": "price_up + price_down < 1.0"
+    },
+    "timing": {
+      "weight": 0.25,
+      "description": "Analyzes trade interval consistency",
+      "threshold": "std_dev < 5 seconds"
+    },
+    "winrate": {
+      "weight": 0.25,
+      "description": "Flags statistically improbable win rates",
+      "threshold": "win_rate > 0.95 AND trades > 100"
+    },
+    "sizing": {
+      "weight": 0.15,
+      "description": "Detects algorithmic position sizing",
+      "threshold": "coefficient_of_variation < 0.1"
+    }
+  },
+  "test_wallets": {
+    "known_bot": {
+      "name": "Account88888",
+      "address": "0x7f69983eb28245bba0d5083502a78744a8f66162",
+      "expected_score": ">80"
+    }
+  }
+}
