@@ -845,3 +845,47 @@
 - Combined Steps 29 and 30 following TDD approach
 - Next step: Create discovery package with types (Step 31)
 
+## [Step 31]: Create Discovery Package with Types
+**Status:** PASSED
+**Tests Written:** TestDiscoveryOptions_Validate (7 subtests), TestDiscoveryOptions_ApplyDefaults (3 subtests), TestDiscoveredWallet (2 subtests), TestDiscoveryStats (5 subtests), TestDiscoveryResult (7 subtests), TestMarketInfo (1 subtest), TestDiscoveryOptionsJSON (1 subtest)
+**Test Results:** All 26 subtests passed (0.002s)
+**Race Detection:** Skipped (CGO_ENABLED=0)
+**Coverage:** 94.6% of statements in discovery package, 84.0% overall
+**Vet/Lint:** PASSED
+**Build:** PASSED
+
+**Findings:**
+- Created comprehensive type system for wallet discovery feature
+- DiscoveryOptions struct with Validate() and ApplyDefaults() methods
+- DiscoveredWallet struct captures wallet address, amounts, counts, and optional ScanReport
+- DiscoveryStats struct with Duration() and BotDetectionRate() helper methods
+- DiscoveryResult struct with AddWallet(), GetBots(), Finalize(), SortByBotScore() methods
+- MarketInfo struct captures market metadata from discovery operation
+- Default constants defined for HoldersLimit (20), Concurrency (3), SortBy ("volume"), BotThreshold (80)
+- Validation ensures at least one input source is specified
+- AutoDiscover requires TopN > 0 for valid configuration
+
+**Code Quality Notes:**
+- All exported types and methods have godoc comments
+- Table-driven tests with subtests for comprehensive coverage
+- Follows Go idioms and project conventions
+- Consistent with existing models and API packages
+- JSON tags for serialization support
+- Proper initialization of slices/maps in NewDiscoveryResult()
+- SortByBotScore() handles nil ScanReports gracefully
+
+**Test Coverage Details:**
+- TestDiscoveryOptions_Validate: valid_with_market_ids, valid_with_slugs, valid_with_auto_discover, invalid_auto_discover_without_top_n, invalid_no_input_specified, valid_with_all_options, defaults_applied_for_zero_concurrency
+- TestDiscoveryOptions_ApplyDefaults: applies_all_defaults, preserves_custom_values, only_applies_missing_defaults
+- TestDiscoveredWallet: new_discovered_wallet, with_scan_report
+- TestDiscoveryStats: new_discovery_stats, duration, duration_zero_when_not_set, bot_detection_rate, bot_detection_rate_zero_wallets
+- TestDiscoveryResult: new_discovery_result, add_wallet, get_bots, get_bots_empty_when_no_matches, finalize, sort_by_bot_score, sort_by_bot_score_nil_reports_last
+- TestMarketInfo: new_market_info
+- TestDiscoveryOptionsJSON: validates all fields accessible
+
+**Recommendations:**
+- This completes the seventh step of F004 (Wallet Discovery) implementation
+- Types are ready for Discoverer struct implementation
+- Consider adding AddMarket() method for MarketInfo tracking
+- Next step: Implement Discoverer struct (Step 32)
+

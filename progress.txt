@@ -1250,3 +1250,55 @@ Monitor command:
 - Consistent with existing GammaAPI method patterns
 - Next steps: Create discovery package with types (Step 31)
 
+## Iteration 26: Discovery Package Types Implementation (Step 31)
+
+### Tasks Completed:
+- Step 31: Create discovery package with types
+
+### Key Decisions:
+- Created new internal/discovery package for wallet discovery feature
+- DiscoveryOptions struct with validation and default application methods
+- DiscoveredWallet struct captures wallet info, aggregated amounts, and optional scan report
+- DiscoveryStats struct tracks operation metrics with Duration() and BotDetectionRate() helpers
+- DiscoveryResult struct aggregates wallets, markets, and stats with helper methods
+- MarketInfo struct captures scanned market metadata
+- Default constants: HoldersLimit=20, Concurrency=3, SortBy="volume", BotThreshold=80
+- Validation ensures at least one input source (MarketIDs, MarketSlugs, or AutoDiscover)
+- AutoDiscover requires TopN > 0
+
+### Files Changed:
+- internal/discovery/discovery.go (created)
+- internal/discovery/discovery_test.go (created)
+- prd.json (updated Step 31 status to completed)
+
+### Test Results:
+- All 26 subtests passed for discovery types
+- TestDiscoveryOptions_Validate: 7 subtests
+- TestDiscoveryOptions_ApplyDefaults: 3 subtests
+- TestDiscoveredWallet: 2 subtests
+- TestDiscoveryStats: 5 subtests
+- TestDiscoveryResult: 7 subtests (new, add, bots, finalize, sort)
+- TestMarketInfo: 1 subtest
+- TestDiscoveryOptionsJSON: 1 subtest
+- Discovery package coverage: 94.6% of statements
+- Overall coverage: 84.0%
+
+### Build/Vet/Lint:
+- Build: PASSED
+- Vet: PASSED
+- gofmt: PASSED
+- Race: Skipped (CGO_ENABLED=0)
+
+### API Design:
+- DiscoveryOptions: Validate(), ApplyDefaults() for configuration validation
+- DiscoveryStats: Duration(), BotDetectionRate() for statistics
+- DiscoveryResult: NewDiscoveryResult(), AddWallet(), GetBots(), Finalize(), SortByBotScore()
+- Types have proper JSON tags for serialization
+
+### Notes:
+- Seventh step of F004 (Wallet Discovery) implementation
+- Following TDD approach: tests written before implementation
+- Pattern consistent with existing models and API packages
+- Types are ready for Discoverer struct implementation (Step 32)
+- Next steps: Implement Discoverer struct (Step 32)
+

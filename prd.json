@@ -284,7 +284,7 @@
       "task": "Create discovery package with types",
       "files": ["internal/discovery/discovery.go"],
       "description": "Create DiscoveryResult, DiscoveredWallet, DiscoveryStats, DiscoveryOptions structs",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 32,
