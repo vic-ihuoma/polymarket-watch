@@ -1150,3 +1150,55 @@ Monitor command:
 - Consistent with existing query options implementations
 - Next steps: Implement GetTopMarkets method (Step 28)
 
+## Iteration 24: GetTopMarkets Method Implementation (Step 28)
+
+### Tasks Completed:
+- Step 28: Implement GetTopMarkets method
+
+### Key Decisions:
+- GetTopMarkets(ctx, opts) fetches all markets, then filters and sorts locally
+- Filtering is done after fetching to ensure accurate results (API may not support all filter combinations)
+- Only returns active, non-closed markets (uses existing FilterActive() method)
+- Sorting is always descending (highest values first for top markets)
+- Default sort by volume when SortBy is empty
+- Added helper methods to MarketList: filterByThresholds() and sortByField()
+- Helper methods are unexported (lowercase) since they're internal implementation details
+
+### Files Changed:
+- internal/api/gamma_api.go (added GetTopMarkets method, filterByThresholds, sortByField helpers)
+- internal/api/gamma_api_test.go (added 12 new test cases for GetTopMarkets, plus interface test)
+
+### Test Results:
+- All 12 subtests passed for GetTopMarkets:
+  - fetches_and_sorts_markets_by_volume_descending
+  - sorts_markets_by_liquidity_descending
+  - sorts_markets_by_volume24hr_descending
+  - filters_by_minimum_volume
+  - filters_by_minimum_volume24hr
+  - filters_by_minimum_liquidity
+  - limits_results_to_specified_count
+  - filters_only_active_markets
+  - handles_empty_result_after_filtering
+  - handles_server_error
+  - handles_context_cancellation
+  - defaults_to_volume_sort_when_sortBy_is_empty
+- TestGammaAPIInterface_WithTopMarkets: Interface compliance verification
+- API package coverage: 86.7% of statements
+- Overall coverage: 83.5%
+- Build: PASSED
+- Vet: PASSED
+- gofmt: PASSED
+
+### API Design:
+- GetTopMarkets(ctx context.Context, opts TopMarketsOptions) (MarketList, error)
+- Leverages existing GetMarkets() and FilterActive() methods
+- filterByThresholds() applies MinVolume, MinVolume24hr, MinLiquidity filters
+- sortByField() sorts by "volume", "liquidity", or "volume24hr" (descending)
+- Limit is applied after filtering and sorting
+
+### Notes:
+- Fifth step of F004 (Wallet Discovery) implementation
+- Method is ready for use in discovery feature to find top markets for holder scanning
+- Uses sort.Slice from standard library for efficient in-place sorting
+- Next steps: Implement GetMarketBySlug method (Step 29)
+

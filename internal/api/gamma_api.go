@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -223,6 +224,40 @@ func (ml MarketList) FindByConditionID(conditionID string) *Market {
 	return nil
 }
 
+// filterByThresholds returns markets that meet all specified minimum thresholds.
+// Zero values for thresholds are ignored (no filtering applied for that field).
+func (ml MarketList) filterByThresholds(minVolume, minVolume24hr, minLiquidity float64) MarketList {
+	var filtered MarketList
+	for _, m := range ml {
+		if minVolume > 0 && m.Volume < minVolume {
+			continue
+		}
+		if minVolume24hr > 0 && m.Volume24hr < minVolume24hr {
+			continue
+		}
+		if minLiquidity > 0 && m.Liquidity < minLiquidity {
+			continue
+		}
+		filtered = append(filtered, m)
+	}
+	return filtered
+}
+
+// sortByField sorts the market list by the specified field in descending order.
+// Valid fields: "volume", "liquidity", "volume24hr". Defaults to volume if invalid.
+func (ml MarketList) sortByField(field string) {
+	sort.Slice(ml, func(i, j int) bool {
+		switch field {
+		case "liquidity":
+			return ml[i].Liquidity > ml[j].Liquidity
+		case "volume24hr":
+			return ml[i].Volume24hr > ml[j].Volume24hr
+		default: // "volume" or any other value
+			return ml[i].Volume > ml[j].Volume
+		}
+	})
+}
+
 // MarketQueryOptions configures market query parameters.
 type MarketQueryOptions struct {
 	// Active filters markets by active status.
@@ -351,4 +386,37 @@ func (g *GammaAPI) GetMarketsWithOptions(ctx context.Context, opts MarketQueryOp
 	}
 
 	return markets, nil
+}
+
+// GetTopMarkets fetches markets, filters by thresholds, sorts by specified field, and returns top N.
+// It only returns active, non-closed markets. The sorting is always descending (highest values first).
+// If SortBy is empty, defaults to sorting by volume.
+func (g *GammaAPI) GetTopMarkets(ctx context.Context, opts TopMarketsOptions) (MarketList, error) {
+	// Fetch all markets first
+	markets, err := g.GetMarkets(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter by active status first
+	filtered := markets.FilterActive()
+
+	// Apply min thresholds
+	filtered = filtered.filterByThresholds(opts.MinVolume, opts.MinVolume24hr, opts.MinLiquidity)
+
+	// Determine sort field (default to volume)
+	sortBy := opts.SortBy
+	if sortBy == "" {
+		sortBy = "volume"
+	}
+
+	// Sort by specified field (descending)
+	filtered.sortByField(sortBy)
+
+	// Apply limit
+	if opts.Limit > 0 && len(filtered) > opts.Limit {
+		filtered = filtered[:opts.Limit]
+	}
+
+	return filtered, nil
 }

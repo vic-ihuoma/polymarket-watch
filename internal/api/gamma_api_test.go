@@ -429,3 +429,376 @@ func TestTopMarketsOptions(t *testing.T) {
 		}
 	})
 }
+
+func TestGammaAPI_GetTopMarkets(t *testing.T) {
+	t.Run("fetches and sorts markets by volume descending", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/markets" {
+				t.Errorf("expected path /markets, got %s", r.URL.Path)
+			}
+
+			markets := []map[string]interface{}{
+				{"id": "market1", "conditionId": "cond1", "volume": "50000", "volume24hr": "1000", "liquidity": "5000", "active": true},
+				{"id": "market2", "conditionId": "cond2", "volume": "100000", "volume24hr": "2000", "liquidity": "10000", "active": true},
+				{"id": "market3", "conditionId": "cond3", "volume": "75000", "volume24hr": "1500", "liquidity": "7500", "active": true},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(markets)
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		opts := TopMarketsOptions{
+			SortBy: "volume",
+			Limit:  10,
+		}
+		markets, err := api.GetTopMarkets(context.Background(), opts)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(markets) != 3 {
+			t.Fatalf("expected 3 markets, got %d", len(markets))
+		}
+		// Should be sorted by volume descending
+		if markets[0].ID != "market2" {
+			t.Errorf("expected first market to be market2 (highest volume), got %s", markets[0].ID)
+		}
+		if markets[1].ID != "market3" {
+			t.Errorf("expected second market to be market3, got %s", markets[1].ID)
+		}
+		if markets[2].ID != "market1" {
+			t.Errorf("expected third market to be market1 (lowest volume), got %s", markets[2].ID)
+		}
+	})
+
+	t.Run("sorts markets by liquidity descending", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			markets := []map[string]interface{}{
+				{"id": "market1", "conditionId": "cond1", "volume": "100000", "volume24hr": "1000", "liquidity": "5000", "active": true},
+				{"id": "market2", "conditionId": "cond2", "volume": "50000", "volume24hr": "500", "liquidity": "15000", "active": true},
+				{"id": "market3", "conditionId": "cond3", "volume": "75000", "volume24hr": "750", "liquidity": "10000", "active": true},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(markets)
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		opts := TopMarketsOptions{
+			SortBy: "liquidity",
+		}
+		markets, err := api.GetTopMarkets(context.Background(), opts)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Should be sorted by liquidity descending
+		if markets[0].ID != "market2" {
+			t.Errorf("expected first market to be market2 (highest liquidity), got %s", markets[0].ID)
+		}
+		if markets[1].ID != "market3" {
+			t.Errorf("expected second market to be market3, got %s", markets[1].ID)
+		}
+		if markets[2].ID != "market1" {
+			t.Errorf("expected third market to be market1 (lowest liquidity), got %s", markets[2].ID)
+		}
+	})
+
+	t.Run("sorts markets by volume24hr descending", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			markets := []map[string]interface{}{
+				{"id": "market1", "conditionId": "cond1", "volume": "100000", "volume24hr": "500", "liquidity": "5000", "active": true},
+				{"id": "market2", "conditionId": "cond2", "volume": "50000", "volume24hr": "2000", "liquidity": "15000", "active": true},
+				{"id": "market3", "conditionId": "cond3", "volume": "75000", "volume24hr": "1000", "liquidity": "10000", "active": true},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(markets)
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		opts := TopMarketsOptions{
+			SortBy: "volume24hr",
+		}
+		markets, err := api.GetTopMarkets(context.Background(), opts)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Should be sorted by volume24hr descending
+		if markets[0].ID != "market2" {
+			t.Errorf("expected first market to be market2 (highest volume24hr), got %s", markets[0].ID)
+		}
+		if markets[1].ID != "market3" {
+			t.Errorf("expected second market to be market3, got %s", markets[1].ID)
+		}
+		if markets[2].ID != "market1" {
+			t.Errorf("expected third market to be market1 (lowest volume24hr), got %s", markets[2].ID)
+		}
+	})
+
+	t.Run("filters by minimum volume", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			markets := []map[string]interface{}{
+				{"id": "market1", "conditionId": "cond1", "volume": "50000", "volume24hr": "1000", "liquidity": "5000", "active": true},
+				{"id": "market2", "conditionId": "cond2", "volume": "100000", "volume24hr": "2000", "liquidity": "10000", "active": true},
+				{"id": "market3", "conditionId": "cond3", "volume": "25000", "volume24hr": "500", "liquidity": "2500", "active": true},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(markets)
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		opts := TopMarketsOptions{
+			MinVolume: 40000,
+			SortBy:    "volume",
+		}
+		markets, err := api.GetTopMarkets(context.Background(), opts)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Should only return markets with volume >= 40000
+		if len(markets) != 2 {
+			t.Fatalf("expected 2 markets after filtering, got %d", len(markets))
+		}
+		for _, m := range markets {
+			if m.Volume < 40000 {
+				t.Errorf("market %s has volume %f which is below threshold", m.ID, m.Volume)
+			}
+		}
+	})
+
+	t.Run("filters by minimum volume24hr", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			markets := []map[string]interface{}{
+				{"id": "market1", "conditionId": "cond1", "volume": "50000", "volume24hr": "1000", "liquidity": "5000", "active": true},
+				{"id": "market2", "conditionId": "cond2", "volume": "100000", "volume24hr": "500", "liquidity": "10000", "active": true},
+				{"id": "market3", "conditionId": "cond3", "volume": "75000", "volume24hr": "2000", "liquidity": "7500", "active": true},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(markets)
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		opts := TopMarketsOptions{
+			MinVolume24hr: 800,
+			SortBy:        "volume24hr",
+		}
+		markets, err := api.GetTopMarkets(context.Background(), opts)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Should only return markets with volume24hr >= 800
+		if len(markets) != 2 {
+			t.Fatalf("expected 2 markets after filtering, got %d", len(markets))
+		}
+		for _, m := range markets {
+			if m.Volume24hr < 800 {
+				t.Errorf("market %s has volume24hr %f which is below threshold", m.ID, m.Volume24hr)
+			}
+		}
+	})
+
+	t.Run("filters by minimum liquidity", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			markets := []map[string]interface{}{
+				{"id": "market1", "conditionId": "cond1", "volume": "50000", "volume24hr": "1000", "liquidity": "3000", "active": true},
+				{"id": "market2", "conditionId": "cond2", "volume": "100000", "volume24hr": "2000", "liquidity": "10000", "active": true},
+				{"id": "market3", "conditionId": "cond3", "volume": "75000", "volume24hr": "1500", "liquidity": "7500", "active": true},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(markets)
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		opts := TopMarketsOptions{
+			MinLiquidity: 5000,
+			SortBy:       "liquidity",
+		}
+		markets, err := api.GetTopMarkets(context.Background(), opts)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Should only return markets with liquidity >= 5000
+		if len(markets) != 2 {
+			t.Fatalf("expected 2 markets after filtering, got %d", len(markets))
+		}
+		for _, m := range markets {
+			if m.Liquidity < 5000 {
+				t.Errorf("market %s has liquidity %f which is below threshold", m.ID, m.Liquidity)
+			}
+		}
+	})
+
+	t.Run("limits results to specified count", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			markets := []map[string]interface{}{
+				{"id": "market1", "conditionId": "cond1", "volume": "50000", "active": true},
+				{"id": "market2", "conditionId": "cond2", "volume": "100000", "active": true},
+				{"id": "market3", "conditionId": "cond3", "volume": "75000", "active": true},
+				{"id": "market4", "conditionId": "cond4", "volume": "90000", "active": true},
+				{"id": "market5", "conditionId": "cond5", "volume": "60000", "active": true},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(markets)
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		opts := TopMarketsOptions{
+			SortBy: "volume",
+			Limit:  3,
+		}
+		markets, err := api.GetTopMarkets(context.Background(), opts)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(markets) != 3 {
+			t.Fatalf("expected 3 markets (limited), got %d", len(markets))
+		}
+		// Should have the top 3 by volume
+		if markets[0].Volume != 100000 {
+			t.Errorf("expected first market volume 100000, got %f", markets[0].Volume)
+		}
+		if markets[1].Volume != 90000 {
+			t.Errorf("expected second market volume 90000, got %f", markets[1].Volume)
+		}
+		if markets[2].Volume != 75000 {
+			t.Errorf("expected third market volume 75000, got %f", markets[2].Volume)
+		}
+	})
+
+	t.Run("filters only active markets", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			markets := []map[string]interface{}{
+				{"id": "market1", "conditionId": "cond1", "volume": "50000", "active": true, "closed": false},
+				{"id": "market2", "conditionId": "cond2", "volume": "100000", "active": false, "closed": true},
+				{"id": "market3", "conditionId": "cond3", "volume": "75000", "active": true, "closed": false},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(markets)
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		opts := TopMarketsOptions{
+			SortBy: "volume",
+		}
+		markets, err := api.GetTopMarkets(context.Background(), opts)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Should only return active, non-closed markets
+		if len(markets) != 2 {
+			t.Fatalf("expected 2 active markets, got %d", len(markets))
+		}
+		for _, m := range markets {
+			if !m.Active || m.Closed {
+				t.Errorf("market %s should be active and not closed", m.ID)
+			}
+		}
+	})
+
+	t.Run("handles empty result after filtering", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			markets := []map[string]interface{}{
+				{"id": "market1", "conditionId": "cond1", "volume": "1000", "active": true},
+				{"id": "market2", "conditionId": "cond2", "volume": "2000", "active": true},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(markets)
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		opts := TopMarketsOptions{
+			MinVolume: 100000, // Higher than any market
+			SortBy:    "volume",
+		}
+		markets, err := api.GetTopMarkets(context.Background(), opts)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(markets) != 0 {
+			t.Errorf("expected 0 markets after filtering, got %d", len(markets))
+		}
+	})
+
+	t.Run("handles server error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(
+			WithGammaBaseURL(server.URL),
+			WithGammaClient(NewClient(WithRetries(0))),
+		)
+		opts := TopMarketsOptions{
+			SortBy: "volume",
+		}
+		_, err := api.GetTopMarkets(context.Background(), opts)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
+
+	t.Run("handles context cancellation", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(5 * time.Second)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		opts := TopMarketsOptions{
+			SortBy: "volume",
+		}
+		_, err := api.GetTopMarkets(ctx, opts)
+		if err == nil {
+			t.Fatal("expected error due to context cancellation")
+		}
+	})
+
+	t.Run("defaults to volume sort when sortBy is empty", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			markets := []map[string]interface{}{
+				{"id": "market1", "conditionId": "cond1", "volume": "50000", "active": true},
+				{"id": "market2", "conditionId": "cond2", "volume": "100000", "active": true},
+				{"id": "market3", "conditionId": "cond3", "volume": "75000", "active": true},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(markets)
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		opts := TopMarketsOptions{
+			// No SortBy specified - should default to volume
+			Limit: 10,
+		}
+		markets, err := api.GetTopMarkets(context.Background(), opts)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Should be sorted by volume descending (default)
+		if markets[0].Volume != 100000 {
+			t.Errorf("expected first market volume 100000 (sorted by volume), got %f", markets[0].Volume)
+		}
+	})
+}
+
+func TestGammaAPIInterface_WithTopMarkets(t *testing.T) {
+	// This test ensures the GammaAPI type includes GetTopMarkets
+	var _ interface {
+		GetMarket(context.Context, string) (*Market, error)
+		GetMarkets(context.Context) (MarketList, error)
+		GetMarketsWithOptions(context.Context, MarketQueryOptions) (MarketList, error)
+		GetTopMarkets(context.Context, TopMarketsOptions) (MarketList, error)
+	} = &GammaAPI{}
+}

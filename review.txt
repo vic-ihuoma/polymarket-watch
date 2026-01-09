@@ -756,3 +756,51 @@
 - TopMarketsOptions will be used by GetTopMarkets for fetching top markets by volume/liquidity
 - Consider adding validation for SortBy field values in future iteration
 
+## [Step 28]: Implement GetTopMarkets Method
+**Status:** PASSED
+**Tests Written:** TestGammaAPI_GetTopMarkets (12 subtests), TestGammaAPIInterface_WithTopMarkets
+**Test Results:** All 12 subtests passed
+**Race Detection:** Included in test runs
+**Coverage:** 86.7% of statements in api package, 83.5% overall
+**Vet/Lint:** PASSED
+**Build:** PASSED
+
+**Findings:**
+- GetTopMarkets correctly fetches markets, filters by thresholds, sorts, and limits results
+- Uses existing FilterActive() method to only return active, non-closed markets
+- Sorting is always descending (highest values first) for "top" market semantics
+- Default sort by volume when SortBy is empty matches typical use case
+- Added two helper methods to MarketList: filterByThresholds() and sortByField()
+- Helper methods are unexported (lowercase) as they're internal implementation details
+- Uses standard library sort.Slice for efficient in-place sorting
+- Leverages existing GetMarkets() method for fetching, maintaining separation of concerns
+
+**Code Quality Notes:**
+- All exported types and methods have godoc comments
+- Table-driven tests with subtests for comprehensive coverage
+- Tests cover sorting, filtering, limiting, error handling, and context cancellation
+- Interface compliance test ensures type safety with GetTopMarkets
+- Follows established patterns from existing methods
+- filterByThresholds() correctly handles zero values (no filtering for that field)
+- sortByField() defaults to volume for unknown field values (defensive programming)
+
+**Test Coverage Details:**
+- TestGammaAPI_GetTopMarkets/fetches_and_sorts_markets_by_volume_descending: Validates default sort
+- TestGammaAPI_GetTopMarkets/sorts_markets_by_liquidity_descending: Validates liquidity sort
+- TestGammaAPI_GetTopMarkets/sorts_markets_by_volume24hr_descending: Validates volume24hr sort
+- TestGammaAPI_GetTopMarkets/filters_by_minimum_volume: Validates MinVolume filtering
+- TestGammaAPI_GetTopMarkets/filters_by_minimum_volume24hr: Validates MinVolume24hr filtering
+- TestGammaAPI_GetTopMarkets/filters_by_minimum_liquidity: Validates MinLiquidity filtering
+- TestGammaAPI_GetTopMarkets/limits_results_to_specified_count: Validates Limit option
+- TestGammaAPI_GetTopMarkets/filters_only_active_markets: Validates active market filtering
+- TestGammaAPI_GetTopMarkets/handles_empty_result_after_filtering: Validates empty result handling
+- TestGammaAPI_GetTopMarkets/handles_server_error: Validates error propagation
+- TestGammaAPI_GetTopMarkets/handles_context_cancellation: Validates timeout behavior
+- TestGammaAPI_GetTopMarkets/defaults_to_volume_sort_when_sortBy_is_empty: Validates default sort
+
+**Recommendations:**
+- This completes the fifth step of F004 (Wallet Discovery) implementation
+- Next step: Implement GetMarketBySlug method (Step 29)
+- GetTopMarkets is ready for use in discovery feature for auto-discovering top markets
+- Consider adding pagination support for very large market lists in future iteration
+

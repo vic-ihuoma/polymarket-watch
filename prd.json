@@ -260,7 +260,7 @@
       "task": "Implement GetTopMarkets method",
       "files": ["internal/api/gamma_api.go"],
       "description": "Fetch markets, filter by min thresholds, sort by specified field, return top N",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 29,
