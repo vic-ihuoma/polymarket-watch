@@ -220,7 +220,7 @@
       "task": "Add Holder types to data_api.go",
       "files": ["internal/api/data_api.go"],
       "description": "Add Holder, HolderToken structs with JSON unmarshaling for string-encoded amounts",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 24,

@@ -984,3 +984,43 @@ Monitor command:
 - Project is ready for production use
 - Next: Consider F004 Wallet Discovery or enhancements
 
+## Iteration 20: Holder Types Implementation (Step 23)
+
+### Tasks Completed:
+- Step 23: Add Holder types to data_api.go
+
+### Key Decisions:
+- Holder struct uses custom UnmarshalJSON to handle string-encoded amounts (same pattern as Trade/Position models)
+- HolderToken struct groups a token (asset ID) with its list of holders
+- HolderList type with helper methods: GetUniqueWallets(), TotalHolders(), FindHoldersByWallet()
+- Holder fields: ProxyWallet (wallet address), Amount (position size), Name (optional display name)
+- Name field uses pointer in intermediate struct for nullable JSON handling
+
+### Files Changed:
+- internal/api/data_api.go (added Holder, HolderToken, HolderList types)
+- internal/api/data_api_test.go (added comprehensive tests)
+
+### Test Results:
+- All tests passed for Holder types
+- TestHolder_UnmarshalJSON: 7 subtests covering all edge cases (valid fields, null name, empty amount, invalid data)
+- TestHolderToken: 2 subtests for token unmarshaling
+- TestHolderList_GetUniqueWallets: 4 subtests for deduplication
+- TestHolderList_TotalHolders: 3 subtests for counting
+- TestHolderList_FindHoldersByWallet: 4 subtests for wallet lookup
+- API package coverage: 81.9% of statements
+- Build: PASSED
+- Vet: PASSED
+- gofmt: PASSED
+
+### API Design:
+- Holder struct matches Polymarket Data API /holders endpoint response format
+- HolderList provides collection methods useful for discovery feature
+- GetUniqueWallets() deduplicates wallets across multiple tokens (for scanning)
+- FindHoldersByWallet() finds all positions for a wallet (for aggregation)
+
+### Notes:
+- First step of F004 (Wallet Discovery) implementation
+- Holder types will be used by GetHolders method (Step 25)
+- Pattern consistent with existing Trade/Position models
+- Next steps: Add HolderQueryOptions (Step 24)
+

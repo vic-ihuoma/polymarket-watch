@@ -586,3 +586,318 @@ func TestDataAPIInterface(t *testing.T) {
 		GetAllPositions(context.Context, string) (models.PositionList, error)
 	} = &DataAPI{}
 }
+
+func TestHolder_UnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name       string
+		json       string
+		wantWallet string
+		wantAmount float64
+		wantName   string
+		wantErr    bool
+	}{
+		{
+			name:       "valid holder with all fields",
+			json:       `{"proxyWallet":"0x123abc","amount":"1500.75","name":"TraderJoe"}`,
+			wantWallet: "0x123abc",
+			wantAmount: 1500.75,
+			wantName:   "TraderJoe",
+			wantErr:    false,
+		},
+		{
+			name:       "valid holder without name",
+			json:       `{"proxyWallet":"0x456def","amount":"250.0"}`,
+			wantWallet: "0x456def",
+			wantAmount: 250.0,
+			wantName:   "",
+			wantErr:    false,
+		},
+		{
+			name:       "valid holder with null name",
+			json:       `{"proxyWallet":"0x789ghi","amount":"100","name":null}`,
+			wantWallet: "0x789ghi",
+			wantAmount: 100.0,
+			wantName:   "",
+			wantErr:    false,
+		},
+		{
+			name:       "valid holder with empty amount string",
+			json:       `{"proxyWallet":"0xabc","amount":""}`,
+			wantWallet: "0xabc",
+			wantAmount: 0,
+			wantName:   "",
+			wantErr:    false,
+		},
+		{
+			name:       "valid holder with integer amount",
+			json:       `{"proxyWallet":"0xdef","amount":"500"}`,
+			wantWallet: "0xdef",
+			wantAmount: 500.0,
+			wantName:   "",
+			wantErr:    false,
+		},
+		{
+			name:    "invalid amount format",
+			json:    `{"proxyWallet":"0x123","amount":"not_a_number"}`,
+			wantErr: true,
+		},
+		{
+			name:    "invalid JSON",
+			json:    `{invalid json`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var h Holder
+			err := json.Unmarshal([]byte(tt.json), &h)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if h.ProxyWallet != tt.wantWallet {
+				t.Errorf("expected ProxyWallet %q, got %q", tt.wantWallet, h.ProxyWallet)
+			}
+			if h.Amount != tt.wantAmount {
+				t.Errorf("expected Amount %f, got %f", tt.wantAmount, h.Amount)
+			}
+			if h.Name != tt.wantName {
+				t.Errorf("expected Name %q, got %q", tt.wantName, h.Name)
+			}
+		})
+	}
+}
+
+func TestHolderToken(t *testing.T) {
+	t.Run("unmarshal holder token with holders", func(t *testing.T) {
+		jsonData := `{
+			"token": "token123",
+			"holders": [
+				{"proxyWallet": "0x111", "amount": "100.5", "name": "Alice"},
+				{"proxyWallet": "0x222", "amount": "200.0"}
+			]
+		}`
+
+		var ht HolderToken
+		err := json.Unmarshal([]byte(jsonData), &ht)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if ht.Token != "token123" {
+			t.Errorf("expected Token 'token123', got %q", ht.Token)
+		}
+		if len(ht.Holders) != 2 {
+			t.Fatalf("expected 2 holders, got %d", len(ht.Holders))
+		}
+		if ht.Holders[0].ProxyWallet != "0x111" {
+			t.Errorf("expected first holder wallet '0x111', got %q", ht.Holders[0].ProxyWallet)
+		}
+		if ht.Holders[0].Amount != 100.5 {
+			t.Errorf("expected first holder amount 100.5, got %f", ht.Holders[0].Amount)
+		}
+		if ht.Holders[0].Name != "Alice" {
+			t.Errorf("expected first holder name 'Alice', got %q", ht.Holders[0].Name)
+		}
+		if ht.Holders[1].Amount != 200.0 {
+			t.Errorf("expected second holder amount 200.0, got %f", ht.Holders[1].Amount)
+		}
+	})
+
+	t.Run("unmarshal holder token with empty holders", func(t *testing.T) {
+		jsonData := `{"token": "token456", "holders": []}`
+
+		var ht HolderToken
+		err := json.Unmarshal([]byte(jsonData), &ht)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if ht.Token != "token456" {
+			t.Errorf("expected Token 'token456', got %q", ht.Token)
+		}
+		if len(ht.Holders) != 0 {
+			t.Errorf("expected 0 holders, got %d", len(ht.Holders))
+		}
+	})
+}
+
+func TestHolderList_GetUniqueWallets(t *testing.T) {
+	tests := []struct {
+		name    string
+		list    HolderList
+		want    int // number of unique wallets
+		wallets []string
+	}{
+		{
+			name: "multiple tokens same wallets",
+			list: HolderList{
+				{Token: "token1", Holders: []Holder{
+					{ProxyWallet: "0x111", Amount: 100},
+					{ProxyWallet: "0x222", Amount: 200},
+				}},
+				{Token: "token2", Holders: []Holder{
+					{ProxyWallet: "0x111", Amount: 150}, // duplicate
+					{ProxyWallet: "0x333", Amount: 300},
+				}},
+			},
+			want:    3,
+			wallets: []string{"0x111", "0x222", "0x333"},
+		},
+		{
+			name: "all unique wallets",
+			list: HolderList{
+				{Token: "token1", Holders: []Holder{
+					{ProxyWallet: "0xAAA", Amount: 100},
+				}},
+				{Token: "token2", Holders: []Holder{
+					{ProxyWallet: "0xBBB", Amount: 200},
+				}},
+			},
+			want:    2,
+			wallets: []string{"0xAAA", "0xBBB"},
+		},
+		{
+			name:    "empty list",
+			list:    HolderList{},
+			want:    0,
+			wallets: []string{},
+		},
+		{
+			name: "single token multiple holders",
+			list: HolderList{
+				{Token: "token1", Holders: []Holder{
+					{ProxyWallet: "0x111", Amount: 100},
+					{ProxyWallet: "0x222", Amount: 200},
+					{ProxyWallet: "0x333", Amount: 300},
+				}},
+			},
+			want:    3,
+			wallets: []string{"0x111", "0x222", "0x333"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wallets := tt.list.GetUniqueWallets()
+			if len(wallets) != tt.want {
+				t.Errorf("expected %d unique wallets, got %d", tt.want, len(wallets))
+			}
+
+			// Verify all expected wallets are present
+			walletMap := make(map[string]bool)
+			for _, w := range wallets {
+				walletMap[w] = true
+			}
+			for _, expected := range tt.wallets {
+				if !walletMap[expected] {
+					t.Errorf("expected wallet %q not found in result", expected)
+				}
+			}
+		})
+	}
+}
+
+func TestHolderList_TotalHolders(t *testing.T) {
+	tests := []struct {
+		name string
+		list HolderList
+		want int
+	}{
+		{
+			name: "multiple tokens",
+			list: HolderList{
+				{Token: "token1", Holders: []Holder{
+					{ProxyWallet: "0x111", Amount: 100},
+					{ProxyWallet: "0x222", Amount: 200},
+				}},
+				{Token: "token2", Holders: []Holder{
+					{ProxyWallet: "0x111", Amount: 150},
+				}},
+			},
+			want: 3, // counts duplicates
+		},
+		{
+			name: "empty list",
+			list: HolderList{},
+			want: 0,
+		},
+		{
+			name: "tokens with no holders",
+			list: HolderList{
+				{Token: "token1", Holders: []Holder{}},
+				{Token: "token2", Holders: []Holder{}},
+			},
+			want: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			count := tt.list.TotalHolders()
+			if count != tt.want {
+				t.Errorf("expected %d total holders, got %d", tt.want, count)
+			}
+		})
+	}
+}
+
+func TestHolderList_FindHoldersByWallet(t *testing.T) {
+	list := HolderList{
+		{Token: "token1", Holders: []Holder{
+			{ProxyWallet: "0x111", Amount: 100, Name: "Alice"},
+			{ProxyWallet: "0x222", Amount: 200},
+		}},
+		{Token: "token2", Holders: []Holder{
+			{ProxyWallet: "0x111", Amount: 150, Name: "Alice"},
+			{ProxyWallet: "0x333", Amount: 300},
+		}},
+	}
+
+	t.Run("finds multiple entries for same wallet", func(t *testing.T) {
+		holders := list.FindHoldersByWallet("0x111")
+		if len(holders) != 2 {
+			t.Fatalf("expected 2 holders, got %d", len(holders))
+		}
+		if holders[0].Amount != 100 {
+			t.Errorf("expected first holder amount 100, got %f", holders[0].Amount)
+		}
+		if holders[1].Amount != 150 {
+			t.Errorf("expected second holder amount 150, got %f", holders[1].Amount)
+		}
+	})
+
+	t.Run("finds single entry", func(t *testing.T) {
+		holders := list.FindHoldersByWallet("0x222")
+		if len(holders) != 1 {
+			t.Fatalf("expected 1 holder, got %d", len(holders))
+		}
+		if holders[0].Amount != 200 {
+			t.Errorf("expected holder amount 200, got %f", holders[0].Amount)
+		}
+	})
+
+	t.Run("returns empty for unknown wallet", func(t *testing.T) {
+		holders := list.FindHoldersByWallet("0xunknown")
+		if len(holders) != 0 {
+			t.Errorf("expected 0 holders, got %d", len(holders))
+		}
+	})
+
+	t.Run("returns empty for empty list", func(t *testing.T) {
+		emptyList := HolderList{}
+		holders := emptyList.FindHoldersByWallet("0x111")
+		if len(holders) != 0 {
+			t.Errorf("expected 0 holders, got %d", len(holders))
+		}
+	})
+}

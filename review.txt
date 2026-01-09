@@ -623,3 +623,34 @@
 - May want to add benchmark tests for performance profiling
 - F004 (Wallet Discovery) remains as planned future work
 
+## [Step 23]: Add Holder Types to data_api.go
+**Status:** PASSED
+**Tests Written:** TestHolder_UnmarshalJSON (7 subtests), TestHolderToken (2 subtests), TestHolderList_GetUniqueWallets (4 subtests), TestHolderList_TotalHolders (3 subtests), TestHolderList_FindHoldersByWallet (4 subtests)
+**Test Results:** All 20 new subtests passed
+**Race Detection:** Not required for data types (no concurrency)
+**Coverage:** 81.9% of statements in api package
+**Vet/Lint:** PASSED
+**Build:** PASSED
+
+**Findings:**
+- Holder struct correctly handles string-encoded amounts with custom UnmarshalJSON
+- HolderToken struct properly groups token ID with holders list
+- HolderList provides useful collection methods for wallet discovery feature
+- GetUniqueWallets() correctly deduplicates wallets across multiple tokens
+- FindHoldersByWallet() enables efficient wallet position lookup
+- TotalHolders() counts all holder entries (including duplicates for same wallet)
+- Pattern consistent with existing Trade/Position model implementations
+
+**Code Quality Notes:**
+- All exported types and methods have godoc comments
+- Table-driven tests with subtests for comprehensive coverage
+- Handles edge cases: null name, empty amount, invalid JSON, empty lists
+- Uses pointer in intermediate struct for nullable JSON fields (Name)
+- HolderList helper methods useful for discovery feature aggregation
+
+**Recommendations:**
+- This is first step of F004 (Wallet Discovery) implementation
+- Next step: Add HolderQueryOptions struct (Step 24)
+- Consider adding TotalAmount() method to HolderList for aggregated holdings
+- May want to add sorting methods (by amount) in future iteration
+

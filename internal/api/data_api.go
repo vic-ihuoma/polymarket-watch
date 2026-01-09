@@ -236,3 +236,96 @@ func (d *DataAPI) GetAllPositions(ctx context.Context, wallet string) (models.Po
 
 	return allPositions, nil
 }
+
+// Holder represents a wallet holding a position in a market.
+type Holder struct {
+	// ProxyWallet is the wallet address holding the position.
+	ProxyWallet string `json:"proxyWallet"`
+	// Amount is the position size held by this wallet.
+	Amount float64 `json:"amount"`
+	// Name is the optional display name for this wallet.
+	Name string `json:"name,omitempty"`
+}
+
+// UnmarshalJSON implements custom JSON unmarshaling for Holder to handle
+// string-encoded numeric amounts from the Polymarket API.
+func (h *Holder) UnmarshalJSON(data []byte) error {
+	// Intermediate struct with Amount as string
+	type holderRaw struct {
+		ProxyWallet string  `json:"proxyWallet"`
+		Amount      string  `json:"amount"`
+		Name        *string `json:"name"`
+	}
+
+	var raw holderRaw
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	h.ProxyWallet = raw.ProxyWallet
+	if raw.Name != nil {
+		h.Name = *raw.Name
+	}
+
+	if raw.Amount != "" {
+		amount, err := strconv.ParseFloat(raw.Amount, 64)
+		if err != nil {
+			return fmt.Errorf("parsing amount: %w", err)
+		}
+		h.Amount = amount
+	}
+
+	return nil
+}
+
+// HolderToken represents a market token and its top holders.
+// The Polymarket /holders endpoint returns data grouped by token.
+type HolderToken struct {
+	// Token is the token ID (asset ID) for this outcome.
+	Token string `json:"token"`
+	// Holders is the list of wallets holding this token.
+	Holders []Holder `json:"holders"`
+}
+
+// HolderList is a slice of HolderToken with helper methods.
+type HolderList []HolderToken
+
+// GetUniqueWallets returns a deduplicated list of all wallet addresses across all tokens.
+func (hl HolderList) GetUniqueWallets() []string {
+	seen := make(map[string]bool)
+	var wallets []string
+
+	for _, ht := range hl {
+		for _, h := range ht.Holders {
+			if !seen[h.ProxyWallet] {
+				seen[h.ProxyWallet] = true
+				wallets = append(wallets, h.ProxyWallet)
+			}
+		}
+	}
+
+	return wallets
+}
+
+// TotalHolders returns the total number of holder entries across all tokens.
+// Note: This may count the same wallet multiple times if it holds multiple tokens.
+func (hl HolderList) TotalHolders() int {
+	count := 0
+	for _, ht := range hl {
+		count += len(ht.Holders)
+	}
+	return count
+}
+
+// FindHoldersByWallet returns all Holder entries for a given wallet address.
+func (hl HolderList) FindHoldersByWallet(wallet string) []Holder {
+	var holders []Holder
+	for _, ht := range hl {
+		for _, h := range ht.Holders {
+			if h.ProxyWallet == wallet {
+				holders = append(holders, h)
+			}
+		}
+	}
+	return holders
+}
