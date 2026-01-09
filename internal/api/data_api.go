@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/victorihuoma/polymarket-watch/internal/models"
 )
@@ -110,6 +111,33 @@ func (o PositionQueryOptions) toParams() map[string]string {
 	}
 	if o.SizeThreshold > 0 {
 		params["sizeThreshold"] = strconv.FormatFloat(o.SizeThreshold, 'f', -1, 64)
+	}
+
+	return params
+}
+
+// HolderQueryOptions configures holder query parameters.
+type HolderQueryOptions struct {
+	// Markets is a list of market/condition IDs to fetch holders for.
+	Markets []string
+	// Limit is the maximum number of holders to return per market (default 20, max 20).
+	Limit int
+	// MinBalance filters holders with balance greater than or equal to this value.
+	MinBalance float64
+}
+
+// toParams converts options to URL query parameters.
+func (o HolderQueryOptions) toParams() map[string]string {
+	params := make(map[string]string)
+
+	if len(o.Markets) > 0 {
+		params["market"] = strings.Join(o.Markets, ",")
+	}
+	if o.Limit > 0 {
+		params["limit"] = strconv.Itoa(o.Limit)
+	}
+	if o.MinBalance > 0 {
+		params["minBalance"] = strconv.FormatFloat(o.MinBalance, 'f', -1, 64)
 	}
 
 	return params

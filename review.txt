@@ -654,3 +654,33 @@
 - Consider adding TotalAmount() method to HolderList for aggregated holdings
 - May want to add sorting methods (by amount) in future iteration
 
+## [Step 24]: Add HolderQueryOptions to data_api.go
+**Status:** PASSED
+**Tests Written:** TestHolderQueryOptions (5 subtests: converts_to_params_with_all_fields, converts_single_market, omits_zero_values, omits_empty_markets_slice, handles_integer_min_balance)
+**Test Results:** All 5 subtests passed (0.00s)
+**Race Detection:** Not required for data types (no concurrency)
+**Coverage:** 82.4% of statements in api package, 82.2% overall
+**Vet/Lint:** PASSED
+**Build:** PASSED
+
+**Findings:**
+- HolderQueryOptions struct correctly handles Markets, Limit, and MinBalance fields
+- toParams() method follows established patterns from TradeQueryOptions and PositionQueryOptions
+- Markets slice is converted to comma-separated string for API query parameter
+- Zero/empty values are correctly omitted from params map
+- MinBalance formats cleanly as integer when decimal portion is zero
+- Added strings import for Join function
+
+**Code Quality Notes:**
+- All exported types and methods have godoc comments
+- Table-driven tests with subtests for comprehensive coverage
+- Follows Go idioms and project conventions
+- Consistent with existing query options implementations
+- Handles edge cases: empty markets slice, zero values, integer min balance formatting
+
+**Recommendations:**
+- This is second step of F004 (Wallet Discovery) implementation
+- Next step: Implement GetHolders method (Step 25)
+- HolderQueryOptions will be used by GetHolders and GetHoldersForMarket methods
+- Consider adding validation for Limit (max 20 per API docs) in future iteration
+

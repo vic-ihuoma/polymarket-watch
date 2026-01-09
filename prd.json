@@ -228,7 +228,7 @@
       "task": "Add HolderQueryOptions to data_api.go",
       "files": ["internal/api/data_api.go"],
       "description": "Add HolderQueryOptions struct with toParams() method for markets, limit, minBalance",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 25,

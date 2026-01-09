@@ -1024,3 +1024,44 @@ Monitor command:
 - Pattern consistent with existing Trade/Position models
 - Next steps: Add HolderQueryOptions (Step 24)
 
+## Iteration 21: HolderQueryOptions Implementation (Step 24)
+
+### Tasks Completed:
+- Step 24: Add HolderQueryOptions to data_api.go
+
+### Key Decisions:
+- HolderQueryOptions struct with Markets ([]string), Limit (int), and MinBalance (float64) fields
+- Markets field converted to comma-separated string for API query parameter
+- toParams() method follows same pattern as TradeQueryOptions and PositionQueryOptions
+- Zero/empty values are omitted from query params (consistent with existing options types)
+- MinBalance uses FormatFloat with -1 precision for clean integer representation when applicable
+
+### Files Changed:
+- internal/api/data_api.go (added HolderQueryOptions struct and toParams method)
+- internal/api/data_api_test.go (added TestHolderQueryOptions with 5 subtests)
+
+### Test Results:
+- All 5 subtests passed for HolderQueryOptions
+- TestHolderQueryOptions/converts_to_params_with_all_fields: Validates all fields conversion
+- TestHolderQueryOptions/converts_single_market: Validates single market handling
+- TestHolderQueryOptions/omits_zero_values: Validates zero value omission
+- TestHolderQueryOptions/omits_empty_markets_slice: Validates empty markets handling
+- TestHolderQueryOptions/handles_integer_min_balance: Validates clean integer formatting
+- API package coverage: 82.4% of statements
+- Overall coverage: 82.2%
+- Build: PASSED
+- Vet: PASSED
+- gofmt: PASSED
+
+### API Design:
+- HolderQueryOptions follows established patterns from TradeQueryOptions and PositionQueryOptions
+- Markets field supports multiple market IDs (joined with comma)
+- Limit is capped at 20 by API (documented in struct field comment)
+- toParams() is exported for consistency with other options types
+
+### Notes:
+- Second step of F004 (Wallet Discovery) implementation
+- HolderQueryOptions will be used by GetHolders method (Step 25)
+- Added strings import to data_api.go for Join function
+- Next steps: Implement GetHolders method (Step 25)
+

@@ -901,3 +901,80 @@ func TestHolderList_FindHoldersByWallet(t *testing.T) {
 		}
 	})
 }
+
+func TestHolderQueryOptions(t *testing.T) {
+	t.Run("converts to params with all fields", func(t *testing.T) {
+		opts := HolderQueryOptions{
+			Markets:    []string{"0xmarket1", "0xmarket2"},
+			Limit:      20,
+			MinBalance: 100.5,
+		}
+		params := opts.toParams()
+
+		// Markets should be comma-separated
+		if params["market"] != "0xmarket1,0xmarket2" {
+			t.Errorf("expected market '0xmarket1,0xmarket2', got %s", params["market"])
+		}
+		if params["limit"] != "20" {
+			t.Errorf("expected limit '20', got %s", params["limit"])
+		}
+		if params["minBalance"] != "100.5" {
+			t.Errorf("expected minBalance '100.5', got %s", params["minBalance"])
+		}
+	})
+
+	t.Run("converts single market", func(t *testing.T) {
+		opts := HolderQueryOptions{
+			Markets: []string{"0xmarket1"},
+		}
+		params := opts.toParams()
+
+		if params["market"] != "0xmarket1" {
+			t.Errorf("expected market '0xmarket1', got %s", params["market"])
+		}
+	})
+
+	t.Run("omits zero values", func(t *testing.T) {
+		opts := HolderQueryOptions{
+			Markets: []string{"0xmarket1"},
+			// Limit and MinBalance are zero values
+		}
+		params := opts.toParams()
+
+		if params["market"] != "0xmarket1" {
+			t.Errorf("expected market '0xmarket1', got %s", params["market"])
+		}
+		if _, exists := params["limit"]; exists {
+			t.Error("expected limit to be omitted")
+		}
+		if _, exists := params["minBalance"]; exists {
+			t.Error("expected minBalance to be omitted")
+		}
+	})
+
+	t.Run("omits empty markets slice", func(t *testing.T) {
+		opts := HolderQueryOptions{
+			Limit: 10,
+		}
+		params := opts.toParams()
+
+		if _, exists := params["market"]; exists {
+			t.Error("expected market to be omitted for empty markets slice")
+		}
+		if params["limit"] != "10" {
+			t.Errorf("expected limit '10', got %s", params["limit"])
+		}
+	})
+
+	t.Run("handles integer min balance", func(t *testing.T) {
+		opts := HolderQueryOptions{
+			MinBalance: 100.0,
+		}
+		params := opts.toParams()
+
+		// Should format as integer when no decimal needed
+		if params["minBalance"] != "100" {
+			t.Errorf("expected minBalance '100', got %s", params["minBalance"])
+		}
+	})
+}
