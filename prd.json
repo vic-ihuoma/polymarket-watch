@@ -15,21 +15,21 @@
       "name": "Single Wallet Scan",
       "description": "Scan a single wallet address and generate a bot probability report",
       "priority": "P0",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "id": "F002",
       "name": "Batch Scanning",
       "description": "Scan multiple wallets from a file with concurrent processing",
       "priority": "P1",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "id": "F003",
       "name": "Real-time Monitoring",
       "description": "Continuously monitor for new trades and flag suspicious activity",
       "priority": "P2",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "id": "F004",
@@ -52,7 +52,7 @@
       "phase": "Setup",
       "task": "Add dependencies: cobra, tablewriter, color",
       "files": ["go.mod", "go.sum"],
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 3,
@@ -60,7 +60,7 @@
       "task": "Implement HTTP client with rate limiting",
       "files": ["internal/api/client.go"],
       "description": "Create reusable HTTP client with 100 req/min rate limit, timeout handling, and retry logic",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 4,
@@ -68,7 +68,7 @@
       "task": "Implement Trade model",
       "files": ["internal/models/trade.go"],
       "description": "Define Trade struct matching Polymarket API response",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 5,
@@ -76,7 +76,7 @@
       "task": "Implement Position model",
       "files": ["internal/models/position.go"],
       "description": "Define Position struct matching Polymarket API response",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 6,
@@ -84,7 +84,7 @@
       "task": "Implement Report model",
       "files": ["internal/models/report.go"],
       "description": "Define ScanReport struct for scanner output",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 7,
@@ -92,7 +92,7 @@
       "task": "Implement Data API client",
       "files": ["internal/api/data_api.go"],
       "description": "GetTrades(wallet) and GetPositions(wallet) methods",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 8,
@@ -100,7 +100,7 @@
       "task": "Implement Gamma API client",
       "files": ["internal/api/gamma_api.go"],
       "description": "GetMarket(conditionId) method for market metadata",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 9,
@@ -108,7 +108,7 @@
       "task": "Implement arbitrage detector",
       "files": ["internal/scanner/arbitrage.go"],
       "description": "Detect simultaneous UP/DOWN positions on same market, calculate spread profit",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 10,
@@ -116,7 +116,7 @@
       "task": "Implement timing analyzer",
       "files": ["internal/scanner/frequency.go"],
       "description": "Calculate trade interval statistics, flag consistent sub-5s intervals",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 11,
@@ -124,7 +124,7 @@
       "task": "Implement win rate analyzer",
       "files": ["internal/scanner/winrate.go"],
       "description": "Calculate win rate, flag >95% with >100 trades",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 12,
@@ -132,7 +132,7 @@
       "task": "Implement sizing analyzer",
       "files": ["internal/scanner/sizing.go"],
       "description": "Detect algorithmic position sizing patterns",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 13,
@@ -140,7 +140,7 @@
       "task": "Implement scanner orchestration",
       "files": ["internal/scanner/scanner.go"],
       "description": "Scanner struct that runs all detectors and computes composite score",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 14,
@@ -148,7 +148,7 @@
       "task": "Implement terminal output",
       "files": ["internal/output/terminal.go"],
       "description": "Rich table output with colors for scan results",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 15,
@@ -156,7 +156,7 @@
       "task": "Implement JSON export",
       "files": ["internal/output/json.go"],
       "description": "Export scan results to JSON file",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 16,
@@ -164,7 +164,7 @@
       "task": "Implement root command",
       "files": ["cmd/polymarket-watch/main.go"],
       "description": "Set up cobra root command with version info",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 17,
@@ -172,23 +172,23 @@
       "task": "Implement scan command",
       "files": ["cmd/polymarket-watch/main.go"],
       "description": "polymarket-watch scan --wallet <address>",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 18,
       "phase": "CLI",
       "task": "Implement batch command",
-      "files": ["cmd/polymarket-watch/main.go"],
+      "files": ["cmd/polymarket-watch/main.go", "cmd/polymarket-watch/main_test.go"],
       "description": "polymarket-watch batch --file wallets.txt",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 19,
       "phase": "CLI",
       "task": "Implement monitor command",
-      "files": ["cmd/polymarket-watch/main.go"],
+      "files": ["cmd/polymarket-watch/main.go", "cmd/polymarket-watch/main_test.go"],
       "description": "polymarket-watch monitor --interval 30s",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 20,
@@ -196,7 +196,7 @@
       "task": "Add GitHub Actions workflow",
       "files": [".github/workflows/ci.yml"],
       "description": "Build, test, and lint on PRs",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 21,
@@ -204,15 +204,175 @@
       "task": "Add unit tests for detection algorithms",
       "files": ["internal/scanner/*_test.go"],
       "description": "Test arbitrage, timing, winrate, sizing detectors",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "step": 22,
       "phase": "Testing",
       "task": "Integration test with Account88888",
-      "files": [],
+      "files": ["internal/scanner/scanner_test.go"],
       "description": "Verify scanner flags Account88888 as high bot probability",
-      "status": "pending"
+      "status": "completed"
+    },
+    {
+      "step": 23,
+      "phase": "API",
+      "task": "Add Holder types to data_api.go",
+      "files": ["internal/api/data_api.go"],
+      "description": "Add Holder, HolderToken structs with JSON unmarshaling for string-encoded amounts",
+      "status": "planned"
+    },
+    {
+      "step": 24,
+      "phase": "API",
+      "task": "Add HolderQueryOptions to data_api.go",
+      "files": ["internal/api/data_api.go"],
+      "description": "Add HolderQueryOptions struct with toParams() method for markets, limit, minBalance",
+      "status": "planned"
+    },
+    {
+      "step": 25,
+      "phase": "API",
+      "task": "Implement GetHolders method",
+      "files": ["internal/api/data_api.go"],
+      "description": "Add GetHolders(ctx, opts) and GetHoldersForMarket(ctx, conditionID, limit) methods",
+      "status": "planned"
+    },
+    {
+      "step": 26,
+      "phase": "API",
+      "task": "Add unit tests for GetHolders",
+      "files": ["internal/api/data_api_test.go"],
+      "description": "Test GetHolders with mock server: valid response, empty response, error handling",
+      "status": "planned"
+    },
+    {
+      "step": 27,
+      "phase": "API",
+      "task": "Add TopMarketsOptions to gamma_api.go",
+      "files": ["internal/api/gamma_api.go"],
+      "description": "Add TopMarketsOptions struct with SortBy, MinVolume, MinVolume24hr, MinLiquidity, Limit fields",
+      "status": "planned"
+    },
+    {
+      "step": 28,
+      "phase": "API",
+      "task": "Implement GetTopMarkets method",
+      "files": ["internal/api/gamma_api.go"],
+      "description": "Fetch markets, filter by min thresholds, sort by specified field, return top N",
+      "status": "planned"
+    },
+    {
+      "step": 29,
+      "phase": "API",
+      "task": "Implement GetMarketBySlug method",
+      "files": ["internal/api/gamma_api.go"],
+      "description": "Query markets endpoint with slug param, return first match or error",
+      "status": "planned"
+    },
+    {
+      "step": 30,
+      "phase": "API",
+      "task": "Add unit tests for GetTopMarkets and GetMarketBySlug",
+      "files": ["internal/api/gamma_api_test.go"],
+      "description": "Test sorting, filtering, slug lookup, error handling",
+      "status": "planned"
+    },
+    {
+      "step": 31,
+      "phase": "Discovery",
+      "task": "Create discovery package with types",
+      "files": ["internal/discovery/discovery.go"],
+      "description": "Create DiscoveryResult, DiscoveredWallet, DiscoveryStats, DiscoveryOptions structs",
+      "status": "planned"
+    },
+    {
+      "step": 32,
+      "phase": "Discovery",
+      "task": "Implement Discoverer struct",
+      "files": ["internal/discovery/discovery.go"],
+      "description": "Create Discoverer with DataAPI, GammaAPI, Scanner dependencies and option pattern",
+      "status": "planned"
+    },
+    {
+      "step": 33,
+      "phase": "Discovery",
+      "task": "Implement market resolution logic",
+      "files": ["internal/discovery/discovery.go"],
+      "description": "Resolve markets from: explicit IDs, slugs (via lookup), or auto-discovery",
+      "status": "planned"
+    },
+    {
+      "step": 34,
+      "phase": "Discovery",
+      "task": "Implement holder aggregation logic",
+      "files": ["internal/discovery/discovery.go"],
+      "description": "Fetch holders per market, deduplicate wallets, aggregate amounts across markets",
+      "status": "planned"
+    },
+    {
+      "step": 35,
+      "phase": "Discovery",
+      "task": "Implement wallet scanning integration",
+      "files": ["internal/discovery/discovery.go"],
+      "description": "Scan discovered wallets concurrently using existing scanner, collect reports",
+      "status": "planned"
+    },
+    {
+      "step": 36,
+      "phase": "Discovery",
+      "task": "Implement Discover() orchestration method",
+      "files": ["internal/discovery/discovery.go"],
+      "description": "Main Discover(ctx, opts) method: resolve markets -> fetch holders -> scan wallets -> return result",
+      "status": "planned"
+    },
+    {
+      "step": 37,
+      "phase": "Discovery",
+      "task": "Add unit tests for discovery package",
+      "files": ["internal/discovery/discovery_test.go"],
+      "description": "Test market resolution, holder aggregation, deduplication, concurrent scanning",
+      "status": "planned"
+    },
+    {
+      "step": 38,
+      "phase": "Output",
+      "task": "Add discovery output formatting",
+      "files": ["internal/output/terminal.go", "internal/output/json.go"],
+      "description": "Add PrintDiscoveryResult and WriteDiscoveryToFile methods to output formatters",
+      "status": "planned"
+    },
+    {
+      "step": 39,
+      "phase": "CLI",
+      "task": "Implement discover command",
+      "files": ["cmd/polymarket-watch/main.go"],
+      "description": "Add discoverCmd() with all flags: --market, --slug, --auto, --top, --sort, --min-volume, --limit, --no-scan, --concurrency, --json, --output",
+      "status": "planned"
+    },
+    {
+      "step": 40,
+      "phase": "CLI",
+      "task": "Register discover command",
+      "files": ["cmd/polymarket-watch/main.go"],
+      "description": "Add discover command to rootCmd(), update help text",
+      "status": "planned"
+    },
+    {
+      "step": 41,
+      "phase": "Testing",
+      "task": "Add CLI integration tests for discover",
+      "files": ["cmd/polymarket-watch/main_test.go"],
+      "description": "Test discover command flag parsing, validation, error handling",
+      "status": "planned"
+    },
+    {
+      "step": 42,
+      "phase": "Documentation",
+      "task": "Mark F004 as completed",
+      "files": ["prd.json"],
+      "description": "Update F004 status to completed after all steps pass",
+      "status": "planned"
     }
   ],
   "api_endpoints": {
@@ -228,6 +388,13 @@
           "path": "/positions",
           "method": "GET",
           "params": ["user", "limit", "offset", "sizeThreshold"]
+        },
+        "holders": {
+          "path": "/holders",
+          "method": "GET",
+          "params": ["market", "limit", "minBalance"],
+          "description": "Get top holders for specified markets (max 20 per market)",
+          "response": "[{token, holders: [{proxyWallet, amount, name, ...}]}]"
         }
       }
     },
