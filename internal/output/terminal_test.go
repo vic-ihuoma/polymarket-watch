@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/victorihuoma/polymarket-watch/internal/discovery"
 	"github.com/victorihuoma/polymarket-watch/internal/models"
 )
 
@@ -447,4 +448,171 @@ func TestSeverityLabel(t *testing.T) {
 func TestTerminalOutput_Interface(t *testing.T) {
 	// Compile-time check that TerminalOutput implements OutputFormatter
 	var _ OutputFormatter = (*TerminalOutput)(nil)
+}
+
+func TestTerminalOutput_PrintDiscoveryResult(t *testing.T) {
+	baseTime := time.Date(2026, 1, 9, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name     string
+		result   *discovery.DiscoveryResult
+		contains []string
+	}{
+		{
+			name: "discovery result with bots detected",
+			result: &discovery.DiscoveryResult{
+				Wallets: []discovery.DiscoveredWallet{
+					{
+						Address:       "0x1234567890abcdef1234567890abcdef12345678",
+						TotalAmount:   5000.0,
+						MarketCount:   3,
+						PositionCount: 5,
+						ScanReport: &models.ScanReport{
+							WalletAddress: "0x1234567890abcdef1234567890abcdef12345678",
+							BotScore:      92,
+							ScanTime:      baseTime,
+							Scores:        map[string]float64{"arbitrage": 1.0},
+							Signals:       []models.DetectionSignal{},
+						},
+					},
+					{
+						Address:       "0xabcdef1234567890abcdef1234567890abcdef12",
+						TotalAmount:   2000.0,
+						MarketCount:   2,
+						PositionCount: 3,
+						ScanReport: &models.ScanReport{
+							WalletAddress: "0xabcdef1234567890abcdef1234567890abcdef12",
+							BotScore:      45,
+							ScanTime:      baseTime,
+							Scores:        map[string]float64{"timing": 0.5},
+							Signals:       []models.DetectionSignal{},
+						},
+					},
+				},
+				Markets: []discovery.MarketInfo{
+					{
+						ConditionID:  "0xmarket123",
+						Slug:         "will-btc-reach-100k",
+						Question:     "Will BTC reach $100k?",
+						HoldersCount: 50,
+						Volume:       1000000.0,
+						Liquidity:    50000.0,
+					},
+				},
+				Stats: discovery.DiscoveryStats{
+					MarketsScanned: 1,
+					WalletsFound:   2,
+					WalletsScanned: 2,
+					BotsDetected:   1,
+					ScanErrors:     0,
+					StartTime:      baseTime.Add(-5 * time.Minute),
+					EndTime:        baseTime,
+				},
+			},
+			contains: []string{
+				"DISCOVERY",           // Header
+				"0x1234...5678",       // First wallet truncated
+				"92",                  // Bot score
+				"HIGH",                // Severity
+				"0xabcd...ef12",       // Second wallet truncated
+				"45",                  // Second bot score
+				"Markets Scanned",     // Stats label
+				"1",                   // Markets scanned count
+				"Wallets Found",       // Stats label
+				"2",                   // Wallets found count
+				"Bots Detected",       // Stats label
+				"will-btc-reach-100k", // Market slug
+			},
+		},
+		{
+			name: "discovery result with no scan (no_scan mode)",
+			result: &discovery.DiscoveryResult{
+				Wallets: []discovery.DiscoveredWallet{
+					{
+						Address:       "0x9999999999999999999999999999999999999999",
+						TotalAmount:   10000.0,
+						MarketCount:   5,
+						PositionCount: 8,
+						ScanReport:    nil, // No scan report when NoScan is true
+					},
+				},
+				Markets: []discovery.MarketInfo{
+					{
+						ConditionID:  "0xmarket456",
+						Slug:         "us-election-2024",
+						Question:     "Who will win the 2024 election?",
+						HoldersCount: 100,
+						Volume:       5000000.0,
+						Liquidity:    200000.0,
+					},
+				},
+				Stats: discovery.DiscoveryStats{
+					MarketsScanned: 1,
+					WalletsFound:   1,
+					WalletsScanned: 0, // No scans performed
+					BotsDetected:   0,
+					ScanErrors:     0,
+					StartTime:      baseTime.Add(-1 * time.Minute),
+					EndTime:        baseTime,
+				},
+			},
+			contains: []string{
+				"DISCOVERY",
+				"0x9999...9999",
+				"10000",       // Total amount
+				"5",           // Market count
+				"us-election", // Market slug
+				"N/A",         // No score available
+			},
+		},
+		{
+			name: "empty discovery result",
+			result: &discovery.DiscoveryResult{
+				Wallets: []discovery.DiscoveredWallet{},
+				Markets: []discovery.MarketInfo{},
+				Stats: discovery.DiscoveryStats{
+					MarketsScanned: 0,
+					WalletsFound:   0,
+					WalletsScanned: 0,
+					BotsDetected:   0,
+					ScanErrors:     0,
+					StartTime:      baseTime,
+					EndTime:        baseTime,
+				},
+			},
+			contains: []string{
+				"DISCOVERY",
+				"No wallets discovered",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := &bytes.Buffer{}
+			out := NewTerminalOutput(WithWriter(buf), WithColor(false))
+
+			err := out.PrintDiscoveryResult(tt.result)
+			if err != nil {
+				t.Fatalf("PrintDiscoveryResult() error = %v", err)
+			}
+
+			output := buf.String()
+			for _, want := range tt.contains {
+				if !strings.Contains(output, want) {
+					t.Errorf("output missing expected content %q\nGot:\n%s", want, output)
+				}
+			}
+		})
+	}
+}
+
+func TestTerminalOutput_PrintDiscoveryResult_NilResult(t *testing.T) {
+	buf := &bytes.Buffer{}
+	out := NewTerminalOutput(WithWriter(buf), WithColor(false))
+
+	err := out.PrintDiscoveryResult(nil)
+	if err == nil {
+		t.Error("PrintDiscoveryResult should return error for nil result")
+	}
 }

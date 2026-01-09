@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/victorihuoma/polymarket-watch/internal/discovery"
 	"github.com/victorihuoma/polymarket-watch/internal/models"
 )
 
@@ -369,4 +370,212 @@ func TestWriteToFile(t *testing.T) {
 // readFile is a helper to read a file's contents.
 func readFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
+}
+
+func TestJSONOutput_PrintDiscoveryResult(t *testing.T) {
+	fixedTime := time.Date(2026, 1, 9, 12, 0, 0, 0, time.UTC)
+
+	t.Run("outputs valid JSON", func(t *testing.T) {
+		var buf bytes.Buffer
+		jo := NewJSONOutput(WithJSONWriter(&buf))
+
+		result := &discovery.DiscoveryResult{
+			Wallets: []discovery.DiscoveredWallet{
+				{
+					Address:       "0x1234567890abcdef1234567890abcdef12345678",
+					TotalAmount:   5000.0,
+					MarketCount:   3,
+					PositionCount: 5,
+					ScanReport: &models.ScanReport{
+						WalletAddress: "0x1234567890abcdef1234567890abcdef12345678",
+						BotScore:      92,
+						ScanTime:      fixedTime,
+						Scores:        map[string]float64{"arbitrage": 1.0},
+						Signals:       []models.DetectionSignal{},
+					},
+				},
+			},
+			Markets: []discovery.MarketInfo{
+				{
+					ConditionID:  "0xmarket123",
+					Slug:         "will-btc-reach-100k",
+					Question:     "Will BTC reach $100k?",
+					HoldersCount: 50,
+					Volume:       1000000.0,
+					Liquidity:    50000.0,
+				},
+			},
+			Stats: discovery.DiscoveryStats{
+				MarketsScanned: 1,
+				WalletsFound:   1,
+				WalletsScanned: 1,
+				BotsDetected:   1,
+				ScanErrors:     0,
+				StartTime:      fixedTime.Add(-5 * time.Minute),
+				EndTime:        fixedTime,
+			},
+		}
+
+		err := jo.PrintDiscoveryResult(result)
+		if err != nil {
+			t.Fatalf("PrintDiscoveryResult returned error: %v", err)
+		}
+
+		// Verify it's valid JSON
+		var decoded discovery.DiscoveryResult
+		if err := json.Unmarshal(buf.Bytes(), &decoded); err != nil {
+			t.Fatalf("Output is not valid JSON: %v", err)
+		}
+
+		// Verify key fields
+		if len(decoded.Wallets) != 1 {
+			t.Errorf("Wallets count mismatch: got %d, want 1", len(decoded.Wallets))
+		}
+		if decoded.Wallets[0].Address != result.Wallets[0].Address {
+			t.Errorf("Address mismatch: got %s, want %s", decoded.Wallets[0].Address, result.Wallets[0].Address)
+		}
+		if decoded.Stats.MarketsScanned != 1 {
+			t.Errorf("MarketsScanned mismatch: got %d, want 1", decoded.Stats.MarketsScanned)
+		}
+	})
+
+	t.Run("pretty print enabled", func(t *testing.T) {
+		var buf bytes.Buffer
+		jo := NewJSONOutput(WithJSONWriter(&buf), WithPrettyPrint(true))
+
+		result := &discovery.DiscoveryResult{
+			Wallets: []discovery.DiscoveredWallet{},
+			Markets: []discovery.MarketInfo{},
+			Stats:   discovery.DiscoveryStats{},
+		}
+
+		err := jo.PrintDiscoveryResult(result)
+		if err != nil {
+			t.Fatalf("PrintDiscoveryResult returned error: %v", err)
+		}
+
+		output := buf.String()
+		// Pretty print should have newlines and indentation
+		if !strings.Contains(output, "\n") {
+			t.Error("pretty print output should contain newlines")
+		}
+	})
+
+	t.Run("compact output", func(t *testing.T) {
+		var buf bytes.Buffer
+		jo := NewJSONOutput(WithJSONWriter(&buf), WithPrettyPrint(false))
+
+		result := &discovery.DiscoveryResult{
+			Wallets: []discovery.DiscoveredWallet{},
+			Markets: []discovery.MarketInfo{},
+			Stats:   discovery.DiscoveryStats{},
+		}
+
+		err := jo.PrintDiscoveryResult(result)
+		if err != nil {
+			t.Fatalf("PrintDiscoveryResult returned error: %v", err)
+		}
+
+		output := strings.TrimSpace(buf.String())
+		// Compact output should be a single line
+		lines := strings.Split(output, "\n")
+		if len(lines) != 1 {
+			t.Errorf("compact output should be single line, got %d lines", len(lines))
+		}
+	})
+
+	t.Run("nil result", func(t *testing.T) {
+		var buf bytes.Buffer
+		jo := NewJSONOutput(WithJSONWriter(&buf))
+
+		err := jo.PrintDiscoveryResult(nil)
+		if err == nil {
+			t.Error("PrintDiscoveryResult should return error for nil result")
+		}
+	})
+}
+
+func TestWriteDiscoveryToFile(t *testing.T) {
+	fixedTime := time.Date(2026, 1, 9, 12, 0, 0, 0, time.UTC)
+
+	t.Run("writes discovery result to file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := tmpDir + "/discovery.json"
+
+		result := &discovery.DiscoveryResult{
+			Wallets: []discovery.DiscoveredWallet{
+				{
+					Address:       "0x1234567890abcdef1234567890abcdef12345678",
+					TotalAmount:   5000.0,
+					MarketCount:   3,
+					PositionCount: 5,
+				},
+			},
+			Markets: []discovery.MarketInfo{
+				{
+					ConditionID:  "0xmarket123",
+					Slug:         "test-market",
+					Question:     "Test?",
+					HoldersCount: 10,
+					Volume:       100000.0,
+					Liquidity:    5000.0,
+				},
+			},
+			Stats: discovery.DiscoveryStats{
+				MarketsScanned: 1,
+				WalletsFound:   1,
+				WalletsScanned: 0,
+				BotsDetected:   0,
+				ScanErrors:     0,
+				StartTime:      fixedTime,
+				EndTime:        fixedTime.Add(time.Minute),
+			},
+		}
+
+		err := WriteDiscoveryToFile(result, filePath)
+		if err != nil {
+			t.Fatalf("WriteDiscoveryToFile returned error: %v", err)
+		}
+
+		// Read back and verify
+		data, err := readFile(filePath)
+		if err != nil {
+			t.Fatalf("failed to read file: %v", err)
+		}
+
+		var decoded discovery.DiscoveryResult
+		if err := json.Unmarshal(data, &decoded); err != nil {
+			t.Fatalf("file content is not valid JSON: %v", err)
+		}
+
+		if len(decoded.Wallets) != 1 {
+			t.Errorf("Wallets count mismatch: got %d, want 1", len(decoded.Wallets))
+		}
+		if decoded.Wallets[0].Address != result.Wallets[0].Address {
+			t.Errorf("Address mismatch: got %s, want %s", decoded.Wallets[0].Address, result.Wallets[0].Address)
+		}
+	})
+
+	t.Run("returns error for nil result", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := tmpDir + "/nil.json"
+
+		err := WriteDiscoveryToFile(nil, filePath)
+		if err == nil {
+			t.Error("WriteDiscoveryToFile should return error for nil result")
+		}
+	})
+
+	t.Run("returns error for invalid path", func(t *testing.T) {
+		result := &discovery.DiscoveryResult{
+			Wallets: []discovery.DiscoveredWallet{},
+			Markets: []discovery.MarketInfo{},
+			Stats:   discovery.DiscoveryStats{},
+		}
+
+		err := WriteDiscoveryToFile(result, "/nonexistent/directory/file.json")
+		if err == nil {
+			t.Error("WriteDiscoveryToFile should return error for invalid path")
+		}
+	})
 }

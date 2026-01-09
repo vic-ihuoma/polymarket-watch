@@ -1403,3 +1403,54 @@ Monitor command:
 - Edge cases for sorting tested to prevent panics
 - Next steps: Add discovery output formatting (Step 38)
 
+## Iteration 29: Discovery Output Formatting (Step 38)
+
+### Tasks Completed:
+- Step 38: Add discovery output formatting
+
+### Key Decisions:
+- Added PrintDiscoveryResult method to TerminalOutput for rich terminal display
+- Added PrintDiscoveryResult method to JSONOutput for JSON serialization
+- Added WriteDiscoveryToFile convenience function for file output
+- Terminal output includes: discovery stats table, markets scanned table, discovered wallets table
+- Wallets without scan reports show "N/A" for bot score and severity
+- Empty discovery results show "No wallets discovered" message
+- Duration is displayed with appropriate rounding
+- Bot detection rate displayed as percentage when wallets were scanned
+- Truncated market slugs for better table formatting (30 char max)
+
+### Files Changed:
+- internal/output/terminal.go (added PrintDiscoveryResult, printDiscoveryStats, printMarketsInfo, printDiscoveredWallets, truncateString)
+- internal/output/json.go (added PrintDiscoveryResult, WriteDiscoveryToFile)
+- internal/output/terminal_test.go (added TestTerminalOutput_PrintDiscoveryResult, TestTerminalOutput_PrintDiscoveryResult_NilResult)
+- internal/output/json_test.go (added TestJSONOutput_PrintDiscoveryResult, TestWriteDiscoveryToFile)
+- prd.json (updated Step 38 status to completed)
+
+### Test Results:
+- All output package tests pass (15 test functions, 50+ subtests)
+- Output package coverage: 92.0% of statements
+- Overall coverage: 85.2%
+- Build: PASSED
+- Vet: PASSED
+- gofmt: PASSED
+
+### New Test Functions:
+- TestTerminalOutput_PrintDiscoveryResult: 3 subtests (bots detected, no scan mode, empty result)
+- TestTerminalOutput_PrintDiscoveryResult_NilResult: nil handling
+- TestJSONOutput_PrintDiscoveryResult: 4 subtests (valid JSON, pretty print, compact, nil)
+- TestWriteDiscoveryToFile: 3 subtests (write to file, nil result, invalid path)
+
+### API Design:
+- TerminalOutput.PrintDiscoveryResult(*discovery.DiscoveryResult) error
+- JSONOutput.PrintDiscoveryResult(*discovery.DiscoveryResult) error
+- WriteDiscoveryToFile(*discovery.DiscoveryResult, string) error
+- Helper functions: printDiscoveryStats, printMarketsInfo, printDiscoveredWallets, truncateString
+
+### Notes:
+- Tenth step of F004 (Wallet Discovery) implementation
+- Follows established patterns from existing Print/PrintSummary methods
+- Uses discovery package types directly (no local type definitions)
+- Terminal output uses tablewriter for consistent table formatting
+- Color-coded bot severity when color is enabled
+- Next steps: Implement discover command (Step 39)
+

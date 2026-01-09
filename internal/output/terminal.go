@@ -2,6 +2,7 @@
 package output
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
+	"github.com/victorihuoma/polymarket-watch/internal/discovery"
 	"github.com/victorihuoma/polymarket-watch/internal/models"
 )
 
@@ -338,4 +340,147 @@ func formatVolume(value float64) string {
 // severityLabel returns the uppercase label for a severity level.
 func severityLabel(severity string) string {
 	return strings.ToUpper(severity)
+}
+
+// PrintDiscoveryResult outputs a discovery result to the terminal.
+func (t *TerminalOutput) PrintDiscoveryResult(result *discovery.DiscoveryResult) error {
+	if result == nil {
+		return errors.New("discovery result cannot be nil")
+	}
+
+	// Header
+	fmt.Fprintln(t.writer)
+	fmt.Fprintln(t.writer, strings.Repeat("═", 80))
+	fmt.Fprintf(t.writer, "  WALLET DISCOVERY RESULTS\n")
+	fmt.Fprintln(t.writer, strings.Repeat("═", 80))
+	fmt.Fprintln(t.writer)
+
+	// Discovery stats summary
+	t.printDiscoveryStats(result)
+
+	// Markets scanned
+	if len(result.Markets) > 0 {
+		t.printMarketsInfo(result.Markets)
+	}
+
+	// Discovered wallets
+	if len(result.Wallets) == 0 {
+		fmt.Fprintln(t.writer, "  No wallets discovered.")
+		fmt.Fprintln(t.writer)
+	} else {
+		t.printDiscoveredWallets(result.Wallets)
+	}
+
+	fmt.Fprintln(t.writer, strings.Repeat("─", 80))
+	fmt.Fprintln(t.writer)
+
+	return nil
+}
+
+// printDiscoveryStats outputs the discovery statistics.
+func (t *TerminalOutput) printDiscoveryStats(result *discovery.DiscoveryResult) {
+	fmt.Fprintln(t.writer, "  DISCOVERY STATISTICS")
+	fmt.Fprintln(t.writer, strings.Repeat("─", 80))
+
+	table := tablewriter.NewTable(t.writer)
+	table.Header("Metric", "Value")
+
+	stats := result.Stats
+
+	table.Append("Markets Scanned", fmt.Sprintf("%d", stats.MarketsScanned))
+	table.Append("Wallets Found", fmt.Sprintf("%d", stats.WalletsFound))
+	table.Append("Wallets Scanned", fmt.Sprintf("%d", stats.WalletsScanned))
+
+	botsStr := fmt.Sprintf("%d", stats.BotsDetected)
+	if t.colorEnabled && stats.BotsDetected > 0 {
+		botsStr = color.New(color.FgRed, color.Bold).Sprintf("%d", stats.BotsDetected)
+	}
+	table.Append("Bots Detected", botsStr)
+
+	if stats.ScanErrors > 0 {
+		table.Append("Scan Errors", fmt.Sprintf("%d", stats.ScanErrors))
+	}
+
+	duration := stats.Duration()
+	if duration > 0 {
+		table.Append("Duration", duration.Round(100*duration/1000).String())
+	}
+
+	if stats.WalletsScanned > 0 {
+		detectionRate := stats.BotDetectionRate() * 100
+		table.Append("Bot Detection Rate", fmt.Sprintf("%.1f%%", detectionRate))
+	}
+
+	table.Render()
+	fmt.Fprintln(t.writer)
+}
+
+// printMarketsInfo outputs information about the markets scanned.
+func (t *TerminalOutput) printMarketsInfo(markets []discovery.MarketInfo) {
+	fmt.Fprintln(t.writer, "  MARKETS SCANNED")
+	fmt.Fprintln(t.writer, strings.Repeat("─", 80))
+
+	table := tablewriter.NewTable(t.writer)
+	table.Header("Slug", "Volume", "Liquidity", "Holders")
+
+	for _, market := range markets {
+		table.Append(
+			truncateString(market.Slug, 30),
+			formatVolume(market.Volume),
+			formatVolume(market.Liquidity),
+			fmt.Sprintf("%d", market.HoldersCount),
+		)
+	}
+
+	table.Render()
+	fmt.Fprintln(t.writer)
+}
+
+// printDiscoveredWallets outputs the table of discovered wallets.
+func (t *TerminalOutput) printDiscoveredWallets(wallets []discovery.DiscoveredWallet) {
+	fmt.Fprintln(t.writer, "  DISCOVERED WALLETS")
+	fmt.Fprintln(t.writer, strings.Repeat("─", 80))
+
+	table := tablewriter.NewTable(t.writer)
+	table.Header("Wallet", "Amount", "Markets", "Positions", "Bot Score", "Severity")
+
+	for _, wallet := range wallets {
+		scoreStr := "N/A"
+		severityStr := "N/A"
+
+		if wallet.ScanReport != nil {
+			scoreStr = fmt.Sprintf("%d", wallet.ScanReport.BotScore)
+			severity := wallet.ScanReport.Severity()
+			severityStr = severityLabel(severity)
+
+			if t.colorEnabled {
+				severityColor := t.getScoreColor(severity)
+				scoreStr = severityColor.Sprintf("%d", wallet.ScanReport.BotScore)
+				severityStr = severityColor.Sprint(severityStr)
+			}
+		}
+
+		table.Append(
+			truncateWallet(wallet.Address),
+			fmt.Sprintf("%.0f", wallet.TotalAmount),
+			fmt.Sprintf("%d", wallet.MarketCount),
+			fmt.Sprintf("%d", wallet.PositionCount),
+			scoreStr,
+			severityStr,
+		)
+	}
+
+	table.Render()
+	fmt.Fprintln(t.writer)
+}
+
+// truncateString shortens a string to maxLen characters with ellipsis.
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
 }

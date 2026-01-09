@@ -982,3 +982,47 @@
 - Context cancellation is properly verified
 - Next step: Add discovery output formatting (Step 38)
 
+## [Step 38]: Add Discovery Output Formatting
+**Status:** PASSED
+**Tests Written:** TestTerminalOutput_PrintDiscoveryResult (3 subtests), TestTerminalOutput_PrintDiscoveryResult_NilResult, TestJSONOutput_PrintDiscoveryResult (4 subtests), TestWriteDiscoveryToFile (3 subtests)
+**Test Results:** All 15 test functions passed in output package
+**Race Detection:** Skipped (CGO_ENABLED=0)
+**Coverage:** 92.0% of statements in output package, 85.2% overall
+**Vet/Lint:** PASSED
+**Build:** PASSED
+
+**Findings:**
+- Added PrintDiscoveryResult method to both TerminalOutput and JSONOutput
+- TerminalOutput displays rich formatted output with three sections:
+  - Discovery statistics table (markets scanned, wallets found, bots detected, duration, detection rate)
+  - Markets scanned table (slug, volume, liquidity, holders count)
+  - Discovered wallets table (address, amount, markets, positions, bot score, severity)
+- JSONOutput leverages existing encode() helper for consistent serialization
+- WriteDiscoveryToFile convenience function for file output
+- Empty discovery results show "No wallets discovered" message
+- Wallets without scan reports show "N/A" for bot score and severity
+- Duration displayed with appropriate rounding
+- Market slugs truncated to 30 characters for table formatting
+- Color-coded severity when color is enabled
+
+**Code Quality Notes:**
+- All exported types and methods have godoc comments
+- Follows established patterns from existing Print/PrintSummary methods
+- Uses discovery package types directly instead of defining local types
+- Table-driven tests with subtests for comprehensive coverage
+- Consistent error handling: nil results return explicit error
+- truncateString helper function for slug formatting
+- Import of discovery package added to both terminal.go and json.go
+
+**Test Coverage Details:**
+- TestTerminalOutput_PrintDiscoveryResult: discovery_result_with_bots_detected, discovery_result_with_no_scan_(no_scan_mode), empty_discovery_result
+- TestTerminalOutput_PrintDiscoveryResult_NilResult: nil result error handling
+- TestJSONOutput_PrintDiscoveryResult: outputs_valid_JSON, pretty_print_enabled, compact_output, nil_result
+- TestWriteDiscoveryToFile: writes_discovery_result_to_file, returns_error_for_nil_result, returns_error_for_invalid_path
+
+**Recommendations:**
+- This completes the tenth step of F004 (Wallet Discovery) implementation
+- Output formatting is ready for integration with the discover CLI command
+- Consider adding truncation for very long wallet lists in future iteration
+- Next step: Implement discover command (Step 39)
+

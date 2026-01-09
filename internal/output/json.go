@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/victorihuoma/polymarket-watch/internal/discovery"
 	"github.com/victorihuoma/polymarket-watch/internal/models"
 )
 
@@ -110,4 +111,29 @@ func WriteSummaryToFile(reports []*models.ScanReport, filePath string) error {
 
 	jo := NewJSONOutput(WithJSONWriter(file))
 	return jo.PrintSummary(reports)
+}
+
+// PrintDiscoveryResult outputs a discovery result as JSON.
+func (jo *JSONOutput) PrintDiscoveryResult(result *discovery.DiscoveryResult) error {
+	if result == nil {
+		return errors.New("discovery result cannot be nil")
+	}
+
+	return jo.encode(result)
+}
+
+// WriteDiscoveryToFile writes a discovery result to a JSON file.
+func WriteDiscoveryToFile(result *discovery.DiscoveryResult, filePath string) error {
+	if result == nil {
+		return errors.New("discovery result cannot be nil")
+	}
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	jo := NewJSONOutput(WithJSONWriter(file))
+	return jo.PrintDiscoveryResult(result)
 }

@@ -340,7 +340,7 @@
       "task": "Add discovery output formatting",
       "files": ["internal/output/terminal.go", "internal/output/json.go"],
       "description": "Add PrintDiscoveryResult and WriteDiscoveryToFile methods to output formatters",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 39,
