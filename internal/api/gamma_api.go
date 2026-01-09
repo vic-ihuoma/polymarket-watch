@@ -420,3 +420,36 @@ func (g *GammaAPI) GetTopMarkets(ctx context.Context, opts TopMarketsOptions) (M
 
 	return filtered, nil
 }
+
+// GetMarketBySlug fetches a market by its URL-friendly slug.
+// Returns the first match if found, or an error if no market matches the slug.
+func (g *GammaAPI) GetMarketBySlug(ctx context.Context, slug string) (*Market, error) {
+	if slug == "" {
+		return nil, fmt.Errorf("slug cannot be empty")
+	}
+
+	url := g.baseURL + "/markets"
+	params := map[string]string{"slug": slug}
+
+	resp, err := g.client.GetWithParams(ctx, url, params)
+	if err != nil {
+		return nil, fmt.Errorf("fetching market by slug: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var markets MarketList
+	if err := json.NewDecoder(resp.Body).Decode(&markets); err != nil {
+		return nil, fmt.Errorf("decoding markets: %w", err)
+	}
+
+	if len(markets) == 0 {
+		return nil, fmt.Errorf("market not found for slug: %s", slug)
+	}
+
+	return markets[0], nil
+}

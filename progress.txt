@@ -1202,3 +1202,51 @@ Monitor command:
 - Uses sort.Slice from standard library for efficient in-place sorting
 - Next steps: Implement GetMarketBySlug method (Step 29)
 
+## Iteration 25: GetMarketBySlug Method Implementation (Steps 29-30)
+
+### Tasks Completed:
+- Step 29: Implement GetMarketBySlug method
+- Step 30: Add unit tests for GetTopMarkets and GetMarketBySlug (tests already exist for GetTopMarkets, added for GetMarketBySlug)
+
+### Key Decisions:
+- GetMarketBySlug(ctx, slug) queries /markets endpoint with slug query parameter
+- API returns array, method returns first match or error if empty
+- Empty slug validation returns explicit error before making API call
+- Returns pointer to Market (*Market) consistent with GetMarket method pattern
+- Error messages are descriptive: "market not found for slug: <slug>"
+- Follows same error handling patterns as other GammaAPI methods
+
+### Files Changed:
+- internal/api/gamma_api.go (added GetMarketBySlug method)
+- internal/api/gamma_api_test.go (added 7 test cases plus interface compliance test)
+
+### Test Results:
+- All 8 new tests passed for GetMarketBySlug:
+  - fetches_market_by_slug: Validates query param, response parsing
+  - returns_error_when_market_not_found: Validates empty response error
+  - returns_first_match_when_multiple_results: Validates first match behavior
+  - handles_server_error: Validates 5xx error handling
+  - handles_invalid_JSON: Validates JSON decode error
+  - handles_context_cancellation: Validates timeout behavior
+  - handles_empty_slug: Validates input validation
+- TestGammaAPIInterface_WithGetMarketBySlug: Interface compliance verification
+- API package coverage: 87.3% of statements
+- Overall coverage: 83.7%
+- Build: PASSED
+- Vet: PASSED
+- gofmt: PASSED
+- Race: Skipped (CGO_ENABLED=0)
+
+### API Design:
+- GetMarketBySlug(ctx context.Context, slug string) (*Market, error)
+- Uses GetWithParams for query string construction
+- Returns first market from response array
+- Error wrapping with context: "fetching market by slug: %w"
+
+### Notes:
+- Sixth step of F004 (Wallet Discovery) implementation
+- Combined Steps 29 and 30 following TDD approach (tests written before implementation)
+- Method enables discovery feature to resolve market slugs from URLs
+- Consistent with existing GammaAPI method patterns
+- Next steps: Create discovery package with types (Step 31)
+

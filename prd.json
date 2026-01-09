@@ -268,7 +268,7 @@
       "task": "Implement GetMarketBySlug method",
       "files": ["internal/api/gamma_api.go"],
       "description": "Query markets endpoint with slug param, return first match or error",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 30,
@@ -276,7 +276,7 @@
       "task": "Add unit tests for GetTopMarkets and GetMarketBySlug",
       "files": ["internal/api/gamma_api_test.go"],
       "description": "Test sorting, filtering, slug lookup, error handling",
-      "status": "planned"
+      "status": "completed"
     },
     {
       "step": 31,

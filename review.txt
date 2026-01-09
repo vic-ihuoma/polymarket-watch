@@ -804,3 +804,44 @@
 - GetTopMarkets is ready for use in discovery feature for auto-discovering top markets
 - Consider adding pagination support for very large market lists in future iteration
 
+## [Steps 29-30]: Implement GetMarketBySlug Method and Add Unit Tests
+**Status:** PASSED
+**Tests Written:** TestGammaAPI_GetMarketBySlug (7 subtests), TestGammaAPIInterface_WithGetMarketBySlug
+**Test Results:** All 8 new tests passed
+**Race Detection:** Skipped (CGO_ENABLED=0)
+**Coverage:** 87.3% of statements in api package, 83.7% overall
+**Vet/Lint:** PASSED
+**Build:** PASSED
+
+**Findings:**
+- GetMarketBySlug correctly queries /markets endpoint with slug query parameter
+- Input validation: empty slug returns explicit error before API call
+- Returns first match from response array (API returns array even for slug filter)
+- Error handling follows established patterns with proper context wrapping
+- Method signature consistent with GetMarket: returns (*Market, error)
+- Error message is descriptive: "market not found for slug: <slug>"
+- Follows TDD approach: tests written first, then implementation
+
+**Code Quality Notes:**
+- All exported types and methods have godoc comments
+- Table-driven tests with subtests for comprehensive coverage
+- Tests verify: valid slug lookup, not found, multiple results, server error, invalid JSON, context cancellation, empty slug
+- Interface compliance test ensures type safety with GetMarketBySlug
+- Follows established patterns from GetMarket, GetMarkets, GetTopMarkets methods
+- Uses GetWithParams for query string construction (consistent with other methods)
+
+**Test Coverage Details:**
+- TestGammaAPI_GetMarketBySlug/fetches_market_by_slug: Validates query param, response parsing
+- TestGammaAPI_GetMarketBySlug/returns_error_when_market_not_found: Validates empty response error
+- TestGammaAPI_GetMarketBySlug/returns_first_match_when_multiple_results: Validates first match behavior
+- TestGammaAPI_GetMarketBySlug/handles_server_error: Validates 5xx error handling
+- TestGammaAPI_GetMarketBySlug/handles_invalid_JSON: Validates JSON decode error
+- TestGammaAPI_GetMarketBySlug/handles_context_cancellation: Validates timeout behavior
+- TestGammaAPI_GetMarketBySlug/handles_empty_slug: Validates input validation
+
+**Recommendations:**
+- This completes the sixth step of F004 (Wallet Discovery) implementation
+- GetMarketBySlug enables discovery feature to resolve market slugs from URLs
+- Combined Steps 29 and 30 following TDD approach
+- Next step: Create discovery package with types (Step 31)
+

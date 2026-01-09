@@ -802,3 +802,192 @@ func TestGammaAPIInterface_WithTopMarkets(t *testing.T) {
 		GetTopMarkets(context.Context, TopMarketsOptions) (MarketList, error)
 	} = &GammaAPI{}
 }
+
+func TestGammaAPI_GetMarketBySlug(t *testing.T) {
+	t.Run("fetches market by slug", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Verify request path and query parameter
+			if r.URL.Path != "/markets" {
+				t.Errorf("expected path /markets, got %s", r.URL.Path)
+			}
+			slug := r.URL.Query().Get("slug")
+			if slug != "bitcoin-100k-2024" {
+				t.Errorf("expected slug query param 'bitcoin-100k-2024', got %s", slug)
+			}
+
+			// Return mock market array (API returns array even for slug query)
+			markets := []map[string]interface{}{
+				{
+					"id":                 "market123",
+					"question":           "Will Bitcoin reach $100k by end of 2024?",
+					"conditionId":        "cond123",
+					"slug":               "bitcoin-100k-2024",
+					"resolutionSource":   "https://coinmarketcap.com",
+					"endDate":            "2024-12-31T23:59:59Z",
+					"liquidity":          "50000.0",
+					"volume":             "1000000.0",
+					"volume24hr":         "25000.0",
+					"active":             true,
+					"closed":             false,
+					"marketMakerAddress": "0xmaker123",
+					"outcomePrices":      "[\"0.65\",\"0.35\"]",
+					"outcomes":           "[\"Yes\",\"No\"]",
+					"clobTokenIds":       "[\"token1\",\"token2\"]",
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(markets)
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		market, err := api.GetMarketBySlug(context.Background(), "bitcoin-100k-2024")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if market == nil {
+			t.Fatal("expected non-nil market")
+		}
+		if market.ID != "market123" {
+			t.Errorf("expected market ID 'market123', got %s", market.ID)
+		}
+		if market.Slug != "bitcoin-100k-2024" {
+			t.Errorf("expected slug 'bitcoin-100k-2024', got %s", market.Slug)
+		}
+		if market.Question != "Will Bitcoin reach $100k by end of 2024?" {
+			t.Errorf("unexpected market question: %s", market.Question)
+		}
+		if market.ConditionID != "cond123" {
+			t.Errorf("expected conditionId 'cond123', got %s", market.ConditionID)
+		}
+		if !market.Active {
+			t.Error("expected market to be active")
+		}
+		if market.Volume != 1000000.0 {
+			t.Errorf("expected volume 1000000.0, got %f", market.Volume)
+		}
+	})
+
+	t.Run("returns error when market not found", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Return empty array when slug doesn't match
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		_, err := api.GetMarketBySlug(context.Background(), "nonexistent-market")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		// Verify error message mentions slug
+		if err.Error() != "market not found for slug: nonexistent-market" {
+			t.Errorf("unexpected error message: %s", err.Error())
+		}
+	})
+
+	t.Run("returns first match when multiple results", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Return multiple markets (edge case)
+			markets := []map[string]interface{}{
+				{
+					"id":          "market1",
+					"conditionId": "cond1",
+					"slug":        "test-market",
+					"active":      true,
+				},
+				{
+					"id":          "market2",
+					"conditionId": "cond2",
+					"slug":        "test-market",
+					"active":      true,
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(markets)
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		market, err := api.GetMarketBySlug(context.Background(), "test-market")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Should return first match
+		if market.ID != "market1" {
+			t.Errorf("expected first market ID 'market1', got %s", market.ID)
+		}
+	})
+
+	t.Run("handles server error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Internal Server Error"))
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(
+			WithGammaBaseURL(server.URL),
+			WithGammaClient(NewClient(WithRetries(0))),
+		)
+		_, err := api.GetMarketBySlug(context.Background(), "test-slug")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
+
+	t.Run("handles invalid JSON", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("invalid json"))
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		_, err := api.GetMarketBySlug(context.Background(), "test-slug")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
+
+	t.Run("handles context cancellation", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(5 * time.Second)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]map[string]interface{}{})
+		}))
+		defer server.Close()
+
+		api := NewGammaAPI(WithGammaBaseURL(server.URL))
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		_, err := api.GetMarketBySlug(ctx, "test-slug")
+		if err == nil {
+			t.Fatal("expected error due to context cancellation")
+		}
+	})
+
+	t.Run("handles empty slug", func(t *testing.T) {
+		api := NewGammaAPI()
+		_, err := api.GetMarketBySlug(context.Background(), "")
+		if err == nil {
+			t.Fatal("expected error for empty slug, got nil")
+		}
+		if err.Error() != "slug cannot be empty" {
+			t.Errorf("unexpected error message: %s", err.Error())
+		}
+	})
+}
+
+func TestGammaAPIInterface_WithGetMarketBySlug(t *testing.T) {
+	// This test ensures the GammaAPI type includes GetMarketBySlug
+	var _ interface {
+		GetMarket(context.Context, string) (*Market, error)
+		GetMarkets(context.Context) (MarketList, error)
+		GetMarketsWithOptions(context.Context, MarketQueryOptions) (MarketList, error)
+		GetTopMarkets(context.Context, TopMarketsOptions) (MarketList, error)
+		GetMarketBySlug(context.Context, string) (*Market, error)
+	} = &GammaAPI{}
+}
